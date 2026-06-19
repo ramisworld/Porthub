@@ -1,0 +1,40 @@
+// PortHub Prisma schema — see docs/ARCHITECTURE.md §6
+// learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// A generated portfolio. Phase 1 creates these anonymously (ownerId null);
+// Phase 2 claims them on signup. `code` is the LLM-generated self-contained page;
+// `profileData` is the editable facts layer injected into it.
+model Portfolio {
+  id             String   @id @default(cuid())
+  ownerId        String? // Clerk user id (Phase 2)
+  githubUsername String
+  slug           String   @unique // the subdomain (nanoid)
+  vibe           String // user's free-text style description
+  profileData    Json // ProfileData (see src/server/profile/model.ts)
+  code           String   @db.Text // generated self-contained HTML
+  isPublic       Boolean  @default(false) // Phase 3 gallery; MVP preview ignores this
+  customDomain   String?  @unique // Phase 4
+  views          Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([githubUsername])
+  @@index([ownerId])
+}
+
+// Cache of raw GitHub fetches to respect the 5,000 req/hr limit.
+model GitHubCache {
+  username  String   @id
+  raw       Json
+  fetchedAt DateTime @default(now())
+}
