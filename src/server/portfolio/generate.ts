@@ -4,9 +4,9 @@ import type { Prisma } from "../../../generated/prisma";
 import { db } from "~/server/db";
 import { fetchRawProfile } from "~/server/github/fetch";
 import { buildFacts } from "~/server/llm/facts";
-import { buildDesign } from "~/server/llm/design";
-import { isRenderable } from "~/server/llm/render-check";
+import { buildDesignSpec } from "~/server/llm/design";
 import { logRunTotal, type UsageRecord } from "~/server/llm/cost";
+import { ENGINE_VERSION } from "~/engine/version";
 
 // DNS-safe lowercase slug for the subdomain.
 const newSlug = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyz", 10);
@@ -49,14 +49,8 @@ export async function* runGeneration(
     if (factsUsage) usages.push(factsUsage);
 
     yield { stage: "designing", message: "Designing your site…" };
-    const first = await buildDesign(data, vibe);
-    let code = first.code;
-    if (first.usage) usages.push(first.usage);
-    if (!isRenderable(code)) {
-      const retry = await buildDesign(data, vibe); // retry once on broken output
-      code = retry.code;
-      if (retry.usage) usages.push(retry.usage);
-    }
+    const { spec, usage: designUsage } = await buildDesignSpec(data, vibe);
+    if (designUsage) usages.push(designUsage);
 
     yield { stage: "saving", message: "Publishing…" };
     const slug = newSlug();
@@ -66,7 +60,8 @@ export async function* runGeneration(
         slug,
         vibe,
         profileData: JSON.parse(JSON.stringify(data)) as Prisma.InputJsonValue,
-        code,
+        designSpec: JSON.parse(JSON.stringify(spec)) as Prisma.InputJsonValue,
+        engineVersion: ENGINE_VERSION,
         isPublic: false,
       },
     });

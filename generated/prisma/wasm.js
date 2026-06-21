@@ -100,6 +100,8 @@ exports.Prisma.PortfolioScalarFieldEnum = {
   slug: 'slug',
   vibe: 'vibe',
   profileData: 'profileData',
+  designSpec: 'designSpec',
+  engineVersion: 'engineVersion',
   code: 'code',
   isPublic: 'isPublic',
   customDomain: 'customDomain',
@@ -120,6 +122,11 @@ exports.Prisma.SortOrder = {
 };
 
 exports.Prisma.JsonNullValueInput = {
+  JsonNull: Prisma.JsonNull
+};
+
+exports.Prisma.NullableJsonNullValueInput = {
+  DbNull: Prisma.DbNull,
   JsonNull: Prisma.JsonNull
 };
 
@@ -191,13 +198,13 @@ const config = {
       }
     }
   },
-  "inlineSchema": "// PortHub Prisma schema — see docs/ARCHITECTURE.md §6\n// learn more: https://pris.ly/d/prisma-schema\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\n// A generated portfolio. Phase 1 creates these anonymously (ownerId null);\n// Phase 2 claims them on signup. `code` is the LLM-generated self-contained page;\n// `profileData` is the editable facts layer injected into it.\nmodel Portfolio {\n  id             String   @id @default(cuid())\n  ownerId        String? // Clerk user id (Phase 2)\n  githubUsername String\n  slug           String   @unique // the subdomain (nanoid)\n  vibe           String // user's free-text style description\n  profileData    Json // ProfileData (see src/server/profile/model.ts)\n  code           String   @db.Text // generated self-contained HTML\n  isPublic       Boolean  @default(false) // Phase 3 gallery; MVP preview ignores this\n  customDomain   String?  @unique // Phase 4\n  views          Int      @default(0)\n  createdAt      DateTime @default(now())\n  updatedAt      DateTime @updatedAt\n\n  @@index([githubUsername])\n  @@index([ownerId])\n}\n\n// Cache of raw GitHub fetches to respect the 5,000 req/hr limit.\nmodel GitHubCache {\n  username  String   @id\n  raw       Json\n  fetchedAt DateTime @default(now())\n}\n",
-  "inlineSchemaHash": "77b57556aef4a3bdbfb4f58e0ef10661a5646020e77d9f5371eacdd6710b537c",
+  "inlineSchema": "// PortHub Prisma schema — see docs/ARCHITECTURE.md §6\n// learn more: https://pris.ly/d/prisma-schema\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\n// A generated portfolio. Phase 1 creates these anonymously (ownerId null);\n// Phase 2 claims them on signup. `code` is the LLM-generated self-contained page;\n// `profileData` is the editable facts layer injected into it.\nmodel Portfolio {\n  id             String   @id @default(cuid())\n  ownerId        String? // Clerk user id (Phase 2)\n  githubUsername String\n  slug           String   @unique // the subdomain (nanoid)\n  vibe           String // user's free-text style description\n  profileData    Json // ProfileData (see src/server/profile/model.ts)\n  designSpec     Json? // DesignSpec (see src/engine/spec.ts) — engine renders this\n  engineVersion  String? // shared engine version this recipe targets (public/engine/<v>.*)\n  code           String?  @db.Text // legacy: pre-engine generated HTML (rendered on the fly now)\n  isPublic       Boolean  @default(false) // Phase 3 gallery; MVP preview ignores this\n  customDomain   String?  @unique // Phase 4\n  views          Int      @default(0)\n  createdAt      DateTime @default(now())\n  updatedAt      DateTime @updatedAt\n\n  @@index([githubUsername])\n  @@index([ownerId])\n}\n\n// Cache of raw GitHub fetches to respect the 5,000 req/hr limit.\nmodel GitHubCache {\n  username  String   @id\n  raw       Json\n  fetchedAt DateTime @default(now())\n}\n",
+  "inlineSchemaHash": "a994d9949ead5002dd9f63e78d8ed38be5a7222a3fbdbcb99b4fd78122e514ce",
   "copyEngine": true
 }
 config.dirname = '/'
 
-config.runtimeDataModel = JSON.parse("{\"models\":{\"Portfolio\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"ownerId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"githubUsername\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"slug\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"vibe\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"profileData\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"code\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"isPublic\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"customDomain\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"views\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null},\"GitHubCache\":{\"fields\":[{\"name\":\"username\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"raw\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"fetchedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")
+config.runtimeDataModel = JSON.parse("{\"models\":{\"Portfolio\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"ownerId\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"githubUsername\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"slug\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"vibe\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"profileData\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"designSpec\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"engineVersion\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"code\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"isPublic\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"customDomain\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"views\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null},\"GitHubCache\":{\"fields\":[{\"name\":\"username\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"raw\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"fetchedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\"}],\"dbName\":null}},\"enums\":{},\"types\":{}}")
 defineDmmfProperty(exports.Prisma, config.runtimeDataModel)
 config.engineWasm = {
   getRuntime: async () => require('./query_engine_bg.js'),

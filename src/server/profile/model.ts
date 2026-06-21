@@ -17,8 +17,14 @@ export const linksSchema = z.object({
 
 export const languageSchema = z.object({
   label: z.string(),
-  /** 0–100, aggregated + deduped share of bytes across repos. */
+  /** 0-100, aggregated + deduped share of bytes across repos. Internal signal, not a skill grade. */
   share: z.number().min(0).max(100),
+});
+
+export const abilitySchema = z.object({
+  label: z.string(),
+  source: z.string().optional(),
+  weight: z.number().min(0).max(100).optional(),
 });
 
 export const statSchema = z.object({
@@ -46,12 +52,14 @@ export const profileDataSchema = z.object({
     links: linksSchema,
   }),
   languages: z.array(languageSchema),
+  abilities: z.array(abilitySchema).default([]),
   stats: z.array(statSchema),
   projects: z.array(projectSchema).max(8),
 });
 
 export type Links = z.infer<typeof linksSchema>;
 export type Language = z.infer<typeof languageSchema>;
+export type Ability = z.infer<typeof abilitySchema>;
 export type Stat = z.infer<typeof statSchema>;
 export type Project = z.infer<typeof projectSchema>;
 export type ProfileData = z.infer<typeof profileDataSchema>;

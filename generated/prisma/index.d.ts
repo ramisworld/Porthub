@@ -978,6 +978,7 @@ export namespace Prisma {
     githubUsername: string | null
     slug: string | null
     vibe: string | null
+    engineVersion: string | null
     code: string | null
     isPublic: boolean | null
     customDomain: string | null
@@ -992,6 +993,7 @@ export namespace Prisma {
     githubUsername: string | null
     slug: string | null
     vibe: string | null
+    engineVersion: string | null
     code: string | null
     isPublic: boolean | null
     customDomain: string | null
@@ -1007,6 +1009,8 @@ export namespace Prisma {
     slug: number
     vibe: number
     profileData: number
+    designSpec: number
+    engineVersion: number
     code: number
     isPublic: number
     customDomain: number
@@ -1031,6 +1035,7 @@ export namespace Prisma {
     githubUsername?: true
     slug?: true
     vibe?: true
+    engineVersion?: true
     code?: true
     isPublic?: true
     customDomain?: true
@@ -1045,6 +1050,7 @@ export namespace Prisma {
     githubUsername?: true
     slug?: true
     vibe?: true
+    engineVersion?: true
     code?: true
     isPublic?: true
     customDomain?: true
@@ -1060,6 +1066,8 @@ export namespace Prisma {
     slug?: true
     vibe?: true
     profileData?: true
+    designSpec?: true
+    engineVersion?: true
     code?: true
     isPublic?: true
     customDomain?: true
@@ -1162,7 +1170,9 @@ export namespace Prisma {
     slug: string
     vibe: string
     profileData: JsonValue
-    code: string
+    designSpec: JsonValue | null
+    engineVersion: string | null
+    code: string | null
     isPublic: boolean
     customDomain: string | null
     views: number
@@ -1196,6 +1206,8 @@ export namespace Prisma {
     slug?: boolean
     vibe?: boolean
     profileData?: boolean
+    designSpec?: boolean
+    engineVersion?: boolean
     code?: boolean
     isPublic?: boolean
     customDomain?: boolean
@@ -1211,6 +1223,8 @@ export namespace Prisma {
     slug?: boolean
     vibe?: boolean
     profileData?: boolean
+    designSpec?: boolean
+    engineVersion?: boolean
     code?: boolean
     isPublic?: boolean
     customDomain?: boolean
@@ -1226,6 +1240,8 @@ export namespace Prisma {
     slug?: boolean
     vibe?: boolean
     profileData?: boolean
+    designSpec?: boolean
+    engineVersion?: boolean
     code?: boolean
     isPublic?: boolean
     customDomain?: boolean
@@ -1241,6 +1257,8 @@ export namespace Prisma {
     slug?: boolean
     vibe?: boolean
     profileData?: boolean
+    designSpec?: boolean
+    engineVersion?: boolean
     code?: boolean
     isPublic?: boolean
     customDomain?: boolean
@@ -1249,7 +1267,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type PortfolioOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "ownerId" | "githubUsername" | "slug" | "vibe" | "profileData" | "code" | "isPublic" | "customDomain" | "views" | "createdAt" | "updatedAt", ExtArgs["result"]["portfolio"]>
+  export type PortfolioOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "ownerId" | "githubUsername" | "slug" | "vibe" | "profileData" | "designSpec" | "engineVersion" | "code" | "isPublic" | "customDomain" | "views" | "createdAt" | "updatedAt", ExtArgs["result"]["portfolio"]>
 
   export type $PortfolioPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "Portfolio"
@@ -1261,7 +1279,9 @@ export namespace Prisma {
       slug: string
       vibe: string
       profileData: Prisma.JsonValue
-      code: string
+      designSpec: Prisma.JsonValue | null
+      engineVersion: string | null
+      code: string | null
       isPublic: boolean
       customDomain: string | null
       views: number
@@ -1696,6 +1716,8 @@ export namespace Prisma {
     readonly slug: FieldRef<"Portfolio", 'String'>
     readonly vibe: FieldRef<"Portfolio", 'String'>
     readonly profileData: FieldRef<"Portfolio", 'Json'>
+    readonly designSpec: FieldRef<"Portfolio", 'Json'>
+    readonly engineVersion: FieldRef<"Portfolio", 'String'>
     readonly code: FieldRef<"Portfolio", 'String'>
     readonly isPublic: FieldRef<"Portfolio", 'Boolean'>
     readonly customDomain: FieldRef<"Portfolio", 'String'>
@@ -3054,6 +3076,8 @@ export namespace Prisma {
     slug: 'slug',
     vibe: 'vibe',
     profileData: 'profileData',
+    designSpec: 'designSpec',
+    engineVersion: 'engineVersion',
     code: 'code',
     isPublic: 'isPublic',
     customDomain: 'customDomain',
@@ -3087,6 +3111,14 @@ export namespace Prisma {
   };
 
   export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+
+
+  export const NullableJsonNullValueInput: {
+    DbNull: typeof DbNull,
+    JsonNull: typeof JsonNull
+  };
+
+  export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
   export const QueryMode: {
@@ -3209,7 +3241,9 @@ export namespace Prisma {
     slug?: StringFilter<"Portfolio"> | string
     vibe?: StringFilter<"Portfolio"> | string
     profileData?: JsonFilter<"Portfolio">
-    code?: StringFilter<"Portfolio"> | string
+    designSpec?: JsonNullableFilter<"Portfolio">
+    engineVersion?: StringNullableFilter<"Portfolio"> | string | null
+    code?: StringNullableFilter<"Portfolio"> | string | null
     isPublic?: BoolFilter<"Portfolio"> | boolean
     customDomain?: StringNullableFilter<"Portfolio"> | string | null
     views?: IntFilter<"Portfolio"> | number
@@ -3224,7 +3258,9 @@ export namespace Prisma {
     slug?: SortOrder
     vibe?: SortOrder
     profileData?: SortOrder
-    code?: SortOrder
+    designSpec?: SortOrderInput | SortOrder
+    engineVersion?: SortOrderInput | SortOrder
+    code?: SortOrderInput | SortOrder
     isPublic?: SortOrder
     customDomain?: SortOrderInput | SortOrder
     views?: SortOrder
@@ -3243,7 +3279,9 @@ export namespace Prisma {
     githubUsername?: StringFilter<"Portfolio"> | string
     vibe?: StringFilter<"Portfolio"> | string
     profileData?: JsonFilter<"Portfolio">
-    code?: StringFilter<"Portfolio"> | string
+    designSpec?: JsonNullableFilter<"Portfolio">
+    engineVersion?: StringNullableFilter<"Portfolio"> | string | null
+    code?: StringNullableFilter<"Portfolio"> | string | null
     isPublic?: BoolFilter<"Portfolio"> | boolean
     views?: IntFilter<"Portfolio"> | number
     createdAt?: DateTimeFilter<"Portfolio"> | Date | string
@@ -3257,7 +3295,9 @@ export namespace Prisma {
     slug?: SortOrder
     vibe?: SortOrder
     profileData?: SortOrder
-    code?: SortOrder
+    designSpec?: SortOrderInput | SortOrder
+    engineVersion?: SortOrderInput | SortOrder
+    code?: SortOrderInput | SortOrder
     isPublic?: SortOrder
     customDomain?: SortOrderInput | SortOrder
     views?: SortOrder
@@ -3280,7 +3320,9 @@ export namespace Prisma {
     slug?: StringWithAggregatesFilter<"Portfolio"> | string
     vibe?: StringWithAggregatesFilter<"Portfolio"> | string
     profileData?: JsonWithAggregatesFilter<"Portfolio">
-    code?: StringWithAggregatesFilter<"Portfolio"> | string
+    designSpec?: JsonNullableWithAggregatesFilter<"Portfolio">
+    engineVersion?: StringNullableWithAggregatesFilter<"Portfolio"> | string | null
+    code?: StringNullableWithAggregatesFilter<"Portfolio"> | string | null
     isPublic?: BoolWithAggregatesFilter<"Portfolio"> | boolean
     customDomain?: StringNullableWithAggregatesFilter<"Portfolio"> | string | null
     views?: IntWithAggregatesFilter<"Portfolio"> | number
@@ -3337,7 +3379,9 @@ export namespace Prisma {
     slug: string
     vibe: string
     profileData: JsonNullValueInput | InputJsonValue
-    code: string
+    designSpec?: NullableJsonNullValueInput | InputJsonValue
+    engineVersion?: string | null
+    code?: string | null
     isPublic?: boolean
     customDomain?: string | null
     views?: number
@@ -3352,7 +3396,9 @@ export namespace Prisma {
     slug: string
     vibe: string
     profileData: JsonNullValueInput | InputJsonValue
-    code: string
+    designSpec?: NullableJsonNullValueInput | InputJsonValue
+    engineVersion?: string | null
+    code?: string | null
     isPublic?: boolean
     customDomain?: string | null
     views?: number
@@ -3367,7 +3413,9 @@ export namespace Prisma {
     slug?: StringFieldUpdateOperationsInput | string
     vibe?: StringFieldUpdateOperationsInput | string
     profileData?: JsonNullValueInput | InputJsonValue
-    code?: StringFieldUpdateOperationsInput | string
+    designSpec?: NullableJsonNullValueInput | InputJsonValue
+    engineVersion?: NullableStringFieldUpdateOperationsInput | string | null
+    code?: NullableStringFieldUpdateOperationsInput | string | null
     isPublic?: BoolFieldUpdateOperationsInput | boolean
     customDomain?: NullableStringFieldUpdateOperationsInput | string | null
     views?: IntFieldUpdateOperationsInput | number
@@ -3382,7 +3430,9 @@ export namespace Prisma {
     slug?: StringFieldUpdateOperationsInput | string
     vibe?: StringFieldUpdateOperationsInput | string
     profileData?: JsonNullValueInput | InputJsonValue
-    code?: StringFieldUpdateOperationsInput | string
+    designSpec?: NullableJsonNullValueInput | InputJsonValue
+    engineVersion?: NullableStringFieldUpdateOperationsInput | string | null
+    code?: NullableStringFieldUpdateOperationsInput | string | null
     isPublic?: BoolFieldUpdateOperationsInput | boolean
     customDomain?: NullableStringFieldUpdateOperationsInput | string | null
     views?: IntFieldUpdateOperationsInput | number
@@ -3397,7 +3447,9 @@ export namespace Prisma {
     slug: string
     vibe: string
     profileData: JsonNullValueInput | InputJsonValue
-    code: string
+    designSpec?: NullableJsonNullValueInput | InputJsonValue
+    engineVersion?: string | null
+    code?: string | null
     isPublic?: boolean
     customDomain?: string | null
     views?: number
@@ -3412,7 +3464,9 @@ export namespace Prisma {
     slug?: StringFieldUpdateOperationsInput | string
     vibe?: StringFieldUpdateOperationsInput | string
     profileData?: JsonNullValueInput | InputJsonValue
-    code?: StringFieldUpdateOperationsInput | string
+    designSpec?: NullableJsonNullValueInput | InputJsonValue
+    engineVersion?: NullableStringFieldUpdateOperationsInput | string | null
+    code?: NullableStringFieldUpdateOperationsInput | string | null
     isPublic?: BoolFieldUpdateOperationsInput | boolean
     customDomain?: NullableStringFieldUpdateOperationsInput | string | null
     views?: IntFieldUpdateOperationsInput | number
@@ -3427,7 +3481,9 @@ export namespace Prisma {
     slug?: StringFieldUpdateOperationsInput | string
     vibe?: StringFieldUpdateOperationsInput | string
     profileData?: JsonNullValueInput | InputJsonValue
-    code?: StringFieldUpdateOperationsInput | string
+    designSpec?: NullableJsonNullValueInput | InputJsonValue
+    engineVersion?: NullableStringFieldUpdateOperationsInput | string | null
+    code?: NullableStringFieldUpdateOperationsInput | string | null
     isPublic?: BoolFieldUpdateOperationsInput | boolean
     customDomain?: NullableStringFieldUpdateOperationsInput | string | null
     views?: IntFieldUpdateOperationsInput | number
@@ -3529,6 +3585,29 @@ export namespace Prisma {
     gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
     not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
   }
+  export type JsonNullableFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<Required<JsonNullableFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonNullableFilterBase<$PrismaModel>>, 'path'>>,
+        Required<JsonNullableFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<Omit<Required<JsonNullableFilterBase<$PrismaModel>>, 'path'>>
+
+  export type JsonNullableFilterBase<$PrismaModel = never> = {
+    equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    path?: string[]
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>
+    string_contains?: string | StringFieldRefInput<$PrismaModel>
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+  }
 
   export type BoolFilter<$PrismaModel = never> = {
     equals?: boolean | BooleanFieldRefInput<$PrismaModel>
@@ -3569,6 +3648,8 @@ export namespace Prisma {
     slug?: SortOrder
     vibe?: SortOrder
     profileData?: SortOrder
+    designSpec?: SortOrder
+    engineVersion?: SortOrder
     code?: SortOrder
     isPublic?: SortOrder
     customDomain?: SortOrder
@@ -3587,6 +3668,7 @@ export namespace Prisma {
     githubUsername?: SortOrder
     slug?: SortOrder
     vibe?: SortOrder
+    engineVersion?: SortOrder
     code?: SortOrder
     isPublic?: SortOrder
     customDomain?: SortOrder
@@ -3601,6 +3683,7 @@ export namespace Prisma {
     githubUsername?: SortOrder
     slug?: SortOrder
     vibe?: SortOrder
+    engineVersion?: SortOrder
     code?: SortOrder
     isPublic?: SortOrder
     customDomain?: SortOrder
@@ -3673,6 +3756,32 @@ export namespace Prisma {
     _count?: NestedIntFilter<$PrismaModel>
     _min?: NestedJsonFilter<$PrismaModel>
     _max?: NestedJsonFilter<$PrismaModel>
+  }
+  export type JsonNullableWithAggregatesFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, 'path'>>,
+        Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<Omit<Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, 'path'>>
+
+  export type JsonNullableWithAggregatesFilterBase<$PrismaModel = never> = {
+    equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    path?: string[]
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>
+    string_contains?: string | StringFieldRefInput<$PrismaModel>
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedJsonNullableFilter<$PrismaModel>
+    _max?: NestedJsonNullableFilter<$PrismaModel>
   }
 
   export type BoolWithAggregatesFilter<$PrismaModel = never> = {
@@ -3860,6 +3969,29 @@ export namespace Prisma {
     | OptionalFlat<Omit<Required<NestedJsonFilterBase<$PrismaModel>>, 'path'>>
 
   export type NestedJsonFilterBase<$PrismaModel = never> = {
+    equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+    path?: string[]
+    mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>
+    string_contains?: string | StringFieldRefInput<$PrismaModel>
+    string_starts_with?: string | StringFieldRefInput<$PrismaModel>
+    string_ends_with?: string | StringFieldRefInput<$PrismaModel>
+    array_starts_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_ends_with?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    array_contains?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | null
+    lt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    lte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
+    not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
+  }
+  export type NestedJsonNullableFilter<$PrismaModel = never> =
+    | PatchUndefined<
+        Either<Required<NestedJsonNullableFilterBase<$PrismaModel>>, Exclude<keyof Required<NestedJsonNullableFilterBase<$PrismaModel>>, 'path'>>,
+        Required<NestedJsonNullableFilterBase<$PrismaModel>>
+      >
+    | OptionalFlat<Omit<Required<NestedJsonNullableFilterBase<$PrismaModel>>, 'path'>>
+
+  export type NestedJsonNullableFilterBase<$PrismaModel = never> = {
     equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
     path?: string[]
     mode?: QueryMode | EnumQueryModeFieldRefInput<$PrismaModel>

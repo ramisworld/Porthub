@@ -6,9 +6,6 @@ export const MAX_PROJECTS = 8;
 const LOW_SIGNAL_NAME =
   /(^|[-_])(clone|tutorial|test|tests|example|examples|demo|hello[-_]?world|playground|learn|learning|practice|boilerplate|starter|template|config|dotfiles)([-_]|$)/i;
 
-const README_CUT =
-  /^#{1,6}\s*(table of contents|contents|installation|install|getting started|setup|usage|quick ?start|how to|contributing|license|licence|acknowledg|credits|roadmap)\b/im;
-
 const daysSince = (iso: string | null): number =>
   iso ? (Date.now() - new Date(iso).getTime()) / 86_400_000 : Infinity;
 
@@ -42,16 +39,24 @@ export function scoreAndSelect(
 /** Extract the "what is this" intro from a README; strip boilerplate; cap length. */
 export function compactReadme(text: string | null): string | null {
   if (!text) return null;
-  let s = text;
+  let s = text.replace(/^﻿/, "");
+  s = s.replace(/^---\r?\n[\s\S]*?\r?\n---\s*/, ""); // fenced YAML frontmatter
   s = s.replace(/<!--[\s\S]*?-->/g, ""); // HTML comments
   s = s.replace(/<[^>]+>/g, ""); // HTML tags
   s = s.replace(/!\[[^\]]*\]\([^)]*\)/g, ""); // images / badges
   s = s.replace(/^\[[^\]]*\]:\s*\S+.*$/gm, ""); // reference-style link defs
   s = s.replace(/^\s*[-*]\s*\[[^\]]*\]\([^)]*\)\s*$/gm, ""); // badge-only list items
-
-  const cut = README_CUT.exec(s);
+  s = s.replace(/^\s+/, "");
+  // unfenced frontmatter-ish lead (key: value / "- item" lines) at the very top
+  s = s.replace(/^(?:[A-Za-z][\w-]*:[ \t].*\r?\n|\s*-[ \t].*\r?\n)+/, "");
+  // leading H1 title (the project name belongs elsewhere, not in the blurb)
+  s = s.replace(/^\s*#\s+.*\r?\n+/, "");
+  // cut at the first subsection heading (## or deeper) — keep just the intro
+  const cut = /^#{2,6}\s+/m.exec(s);
   if (cut) s = s.slice(0, cut.index);
-
+  // drop "Welcome to ...!" boilerplate openers
+  s = s.replace(/^welcome to [^.!?\n]*[.!?]\s*/i, "");
+  s = s.replace(/^#{1,6}\s*/gm, ""); // strip any remaining heading hashes
   s = s.replace(/\n{3,}/g, "\n\n").trim();
   if (s.length > 1600) s = s.slice(0, 1600).trimEnd() + "…";
   return s || null;

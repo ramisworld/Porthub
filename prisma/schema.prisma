@@ -21,7 +21,9 @@ model Portfolio {
     slug           String   @unique // the subdomain (nanoid)
     vibe           String // user's free-text style description
     profileData    Json // ProfileData (see src/server/profile/model.ts)
-    code           String   @db.Text // generated self-contained HTML
+    designSpec     Json? // DesignSpec (see src/engine/spec.ts) — engine renders this
+    engineVersion  String? // shared engine version this recipe targets (public/engine/<v>.*)
+    code           String?  @db.Text // legacy: pre-engine generated HTML (rendered on the fly now)
     isPublic       Boolean  @default(false) // Phase 3 gallery; MVP preview ignores this
     customDomain   String?  @unique // Phase 4
     views          Int      @default(0)

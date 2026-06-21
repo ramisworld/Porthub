@@ -128,6 +128,8 @@ exports.Prisma.PortfolioScalarFieldEnum = {
   slug: 'slug',
   vibe: 'vibe',
   profileData: 'profileData',
+  designSpec: 'designSpec',
+  engineVersion: 'engineVersion',
   code: 'code',
   isPublic: 'isPublic',
   customDomain: 'customDomain',
@@ -148,6 +150,11 @@ exports.Prisma.SortOrder = {
 };
 
 exports.Prisma.JsonNullValueInput = {
+  JsonNull: Prisma.JsonNull
+};
+
+exports.Prisma.NullableJsonNullValueInput = {
+  DbNull: Prisma.DbNull,
   JsonNull: Prisma.JsonNull
 };
 

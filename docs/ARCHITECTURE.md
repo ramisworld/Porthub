@@ -1,18 +1,41 @@
 # PortHub — Architecture
 
-## 0. The core model: the LLM generates the UI
+## 0. The core model: facts + art direction + a shared premium engine
 
-PortHub does **not** use fixed templates. To produce bespoke, interactive, animated designs
-that match each user's stated vibe, **the LLM generates the actual page** (HTML + Tailwind +
-CSS + JS, animations, interactive background). Deterministic code never designs anything — it
-only (a) prepares the data and (b) safely renders/stores what the model generates.
+PortHub no longer asks the LLM to write full HTML/CSS/JS for every portfolio. That approach
+was expensive, brittle, and too dependent on one model call getting layout, animation,
+accessibility, and performance right at the same time.
 
-Two layers, and the split is the whole architecture:
+The product now has three layers:
 
-- **Layer 1 — Facts (`ProfileData`):** cheap, deterministic + a small model. Curates the
+- **Layer 1 — Facts (`ProfileData`):** deterministic GitHub scraping + a small model. Curates the
   user's best work into a small structured object. This is "compaction".
-- **Layer 2 — Design (generated `code`):** the creative Opus call. Takes `ProfileData` + the
-  vibe sentence and emits a single self-contained interactive page.
+- **Layer 2 — Art direction (`DesignSpec`):** a tiny JSON recipe. The model picks palette,
+  typography, motion, WebGL scene, boot treatment, component skins, and an **experience pack**.
+- **Layer 3 — Shared engine:** hand-built PortHub code renders `ProfileData + DesignSpec` into
+  the actual interactive portfolio. This is where the design quality lives.
+
+The engine is the core IP. It ships once as `public/engine/<version>.js/.css` and every portfolio
+references that shared bundle. Existing portfolios store only the recipe, so engine upgrades can
+improve old portfolios without regenerating code.
+
+### Experience packs
+
+PortHub should feel like a catalogue of living worlds, not a template with different colors.
+Each experience pack owns the whole composition: loader, navigation, section naming, typography,
+layout rhythm, project cards, contact treatment, scroll choreography, cursor behavior, and the
+WebGL/canvas scene contract.
+
+Examples:
+
+- `terminalNexus` — cyber terminal, side telemetry, reactive particles, command-line modules.
+- `directorCut` — cinematic letterbox, scene/take boot slate, timeline scrubber, act-based layout.
+- `desktopOS` — draggable-feeling app windows, dock/taskbar, filesystem metaphors.
+- `gameHud` — player card, ability tree, inventory, quest log, rank/XP language treatment.
+- `liquidGlass` — refractive glass, editorial spacing, fluid cards, premium calm motion.
+
+The art-director LLM should choose an experience pack; it should not invent implementation details.
+Variety comes from pack x scene x palette x typography x content x motion parameters.
 
 ## 1. Stack (T3-inspired, opinionated)
 
@@ -27,7 +50,7 @@ Scaffold with **`create-t3-app`**, then swap auth to Clerk and add the rest.
 | Auth | **Clerk — Phase 2** (Phase 1 generates anonymously) | Don't gate the payoff |
 | Facts model (Layer 1) | **`claude-haiku-4-5`** + deterministic code | Cheap repo→blurb condensing |
 | Design model (Layer 2) | **`claude-opus-4-8`** (A/B `claude-sonnet-4-6`) | Strong design instincts, low AI-slop |
-| Generated page | **Self-contained HTML** (Tailwind Play CDN + CSS + JS, optional CDN anim lib) | No build step; render + export as one file |
+| Portfolio runtime | **Shared engine bundle** (`public/engine/v*.js/.css`) | Rich hand-built interactions, cached once, cheap generations |
 | Rendering | **Sandboxed `<iframe srcdoc>`** (`allow-scripts`, NOT `allow-same-origin`) | Untrusted generated JS can't touch the app |
 | GitHub | **`@octokit/graphql`**, server-side token | One query, 5,000 req/hr |
 | Multi-tenant routing | **`middleware.ts`** host rewrite + wildcard domain | `<slug>.localhost:3000` / `<slug>.porthub.app` |
@@ -70,7 +93,7 @@ porthub/
         generate/page.tsx        # live build-log screen (SSE)
         dashboard/page.tsx       # (Phase 2) user's portfolios
         edit/[id]/page.tsx       # (Phase 2) ProfileData editor
-      sites/[slug]/page.tsx      # REWRITE TARGET: renders generated code in a sandboxed iframe
+      sites/[slug]/page.tsx      # REWRITE TARGET: renders recipe through shared engine in sandboxed iframe
       sites/[slug]/opengraph-image.tsx
       api/
         generate/route.ts        # streaming pipeline (SSE)
@@ -80,9 +103,12 @@ porthub/
       github/                    # GraphQL query + select/compact (deterministic)
       llm/
         facts.ts                 # Layer 1: Haiku blurbs → ProfileData
-        design.ts                # Layer 2: Opus → self-contained page
-        render-check.ts          # parses/validates generated output; retry once
+        design.ts                # Layer 2: art director → tiny DesignSpec JSON
       profile/                   # ProfileData (Zod), data-injection + export helpers
+    engine/
+      spec.ts                    # DesignSpec contract and registries
+      runtime/                   # browser DOM builders, packs, skins, fallback backgrounds
+      premium/                   # Three.js, GSAP, boot screens, cursor, scroll choreography
   prisma/schema.prisma
   docs/
 ```
@@ -94,10 +120,9 @@ username + vibe
   └─▶ [GitHub GraphQL fetch]      server/github/fetch.ts     (cache by username)
        └─▶ [select + compact]     server/github/select.ts    (≤8 repos, README-or-not)
             └─▶ [Haiku → ProfileData]  server/llm/facts.ts    (cheap, structured FACTS)
-                 └─▶ [Opus → page]     server/llm/design.ts   (bespoke interactive HTML)
-                      └─▶ [render-check]server/llm/render-check.ts (retry once if broken)
-                           └─▶ persist Portfolio{profileData, vibe, code}, slug = nanoid()
-                                └─▶ /sites/<slug> renders code in a sandboxed iframe
+                 └─▶ [Art director → DesignSpec] server/llm/design.ts
+                      └─▶ persist Portfolio{profileData, designSpec, engineVersion, slug}
+                           └─▶ /sites/<slug> renders the shared engine in a sandboxed iframe
 ```
 
 ### Layer 1 — Facts (`ProfileData`): what "compaction" means
@@ -115,36 +140,46 @@ Deterministic selection + a cheap Haiku condense. Never feeds raw GitHub to Opus
 - **Haiku condense:** turn each repo's signals into a tight 1–2 sentence blurb (~$0.005 total).
 - Output is the structured `ProfileData` (Section 5) — the durable, editable layer.
 
-### Layer 2 — Design (generated `code`): the creative magic
+### Layer 2 — Art direction (`DesignSpec`)
 
-One Opus call: `ProfileData` + vibe → a **single self-contained interactive page.**
+One small model call: `ProfileData + vibe -> DesignSpec`.
 
-- The **system prompt bakes in the design DNA**: always interactive, animated, with a living
-  background, micro-interactions, custom typography, strong layout — and **explicitly anti-
-  AI-slop** (no Inter/Roboto defaults, no purple-on-white gradients, no cookie-cutter layouts).
-- The **vibe sentence steers the whole aesthetic** ("dark hacker terminal, neon green" →
-  monospace, scanlines, terminal chrome, animated grid).
-- **Output discipline (the cost lever):** Tailwind Play CDN (write classes, not CSS blocks);
-  data **injected as `const DATA = ProfileData`** so output tokens go to *design*, not content;
-  one file; prefer CSS/canvas for backgrounds, a CDN lib (e.g. three.js) only when it elevates.
-- **render-check:** parse the output; if it's broken/empty, regenerate once. Replaces the old
-  "quality gate."
+The model chooses from strict registries:
 
-### Model strategy & cost (target < $0.30 / first generation)
+- `experience`: full-page world/composition.
+- `webgl.scene`: reusable premium scene module.
+- `theme`, `typography`, `skins`, `motion`, `cursor`, `boot`, `postfx`.
+- optional bounded `signatureCss` for tiny visual flourishes only.
 
-In the generative approach **output tokens dominate** (the model writes code):
+The model must not write HTML or arbitrary JS. That keeps generation cheap and keeps the visual
+quality in code we can test.
+
+### Layer 3 — Shared engine
+
+The engine renders the portfolio in the iframe. It contains:
+
+- DOM renderers for each experience pack.
+- Premium WebGL scenes using Three.js shaders, particles, bloom, chromatic shift, and scroll-driven
+  uniforms.
+- GSAP choreography: ScrollTrigger timelines, ScrollSmoother, ScrambleText, hover/cursor effects,
+  section-aware nav, and per-pack animation hooks.
+- 2D fallbacks and reduced-motion paths.
+- A stable component vocabulary for stats, abilities, projects, contact, and identity.
+
+### Model strategy & cost
+
+In the shared-engine approach, output tokens are tiny because the model writes only JSON:
 
 | Layer | Model | Tokens | Cost |
 |---|---|---|---|
 | Facts | `claude-haiku-4-5` | ~3K in / ~0.4K out | ~$0.005 |
-| Design | `claude-opus-4-8` | ~4K in / ~6K out | ~$0.17 |
-| **Per portfolio** | | | **~$0.18** (under budget) |
+| Art direction | small/medium model | ~2K in / ~0.5K out | ~2-3 cents target |
+| **Per portfolio** | | | **low cents target** |
 
-- **Start Opus 4.8** (design quality = the entire product). **A/B `claude-sonnet-4-6`**
-  (~$0.10) and keep it if the wow holds.
-- **Levers to stay under 30¢:** Tailwind CDN, data-injection, one-file scope, model choice.
-- **What blows the budget:** feeding full READMEs to Opus, or letting the page balloon. Both
-  controlled by Layer 1 compaction + output discipline. (Fable is out — output pricing too high.)
+- **The cost lever is the engine:** invest engineering time in reusable premium packs instead of
+  paying models to retype UI code.
+- **The quality lever is pack depth:** every pack needs its own layout rules, not just a theme.
+- **What blows the product:** generic grids, generic bars, generic cards, and background-only wow.
 
 ## 5. `ProfileData` (the contract — Zod)
 
@@ -153,7 +188,8 @@ The editable facts layer. The generated page reads it as injected `DATA`.
 ```
 ProfileData {
   identity   { name, headline, role, location, links{github,site,x,email} }
-  languages  [{ label, share }]                 // aggregated + deduped
+  languages  [{ label, share }]                 // aggregated + deduped; share is not displayed as skill grade
+  abilities  [{ label, source?, weight? }]       // derived from languages/topics/deps; rendered as skills/abilities
   stats      [{ value, label }]                 // flattering-but-true, never a zero
   projects   [{ name, blurb, tech[], stars?, demoUrl?, repoUrl }]   // ≤ 8
 }
@@ -167,7 +203,7 @@ regenerates `code`. Export bundles `code` + `DATA` into a self-hostable file.
 ```
 User       { id(Clerk), plan(free|pro), createdAt }                 // Phase 2
 Portfolio  { id, ownerId?, githubUsername, slug(unique),
-             vibe(String), profileData(Json), code(Text),
+             vibe(String), profileData(Json), designSpec(Json), engineVersion(String), code(Text? legacy),
              isPublic, customDomain?, views, createdAt }
 GitHubCache{ username(unique), raw(Json), fetchedAt }               // TTL for rate limits
 ```

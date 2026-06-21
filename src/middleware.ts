@@ -13,6 +13,12 @@ const RESERVED = new Set(["www", "app", "api"]);
  * The bare root domain serves the app.
  */
 export function middleware(req: NextRequest) {
+  // The shared engine bundle must serve on every host (incl. portfolio
+  // subdomains) — never rewrite it to a /sites/<slug> route.
+  if (req.nextUrl.pathname.startsWith("/engine/")) {
+    return NextResponse.next();
+  }
+
   const host = (req.headers.get("host") ?? "").toLowerCase();
 
   // Not our root domain (e.g. a Vercel preview URL) → serve the app as-is.
