@@ -40,11 +40,51 @@ function headingReveals(): void {
   });
 }
 
+/** Section headings decrypt out of glyph-noise as they scroll in — GHOST decode. */
+function decryptHeadings(): void {
+  const heads = Array.from(
+    document.querySelectorAll<HTMLElement>("#ph-app .xp-tn-h2"),
+  );
+  if (!heads.length || typeof IntersectionObserver !== "function") return;
+  const GLYPHS = "01<>/\\[]{}#$%&*+=!?~^";
+  const run = (el: HTMLElement) => {
+    const target = el.textContent ?? "";
+    let frame = 0;
+    const total = 18;
+    const id = window.setInterval(() => {
+      frame++;
+      const rev = Math.floor((frame / total) * target.length);
+      let out = "";
+      for (let c = 0; c < target.length; c++) {
+        const ch = target[c];
+        out += ch === " " || c < rev ? ch : GLYPHS[(Math.random() * GLYPHS.length) | 0];
+      }
+      el.textContent = out;
+      if (frame >= total) {
+        el.textContent = target;
+        window.clearInterval(id);
+      }
+    }, 28);
+  };
+  const io = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) {
+          run(e.target as HTMLElement);
+          io.unobserve(e.target);
+        }
+      });
+    },
+    { threshold: 0.55 },
+  );
+  heads.forEach((h) => io.observe(h));
+}
+
 /** Buttons/CTAs lean toward the cursor — small, premium, very "alive". */
 function magneticButtons(): void {
-  if (reduce || (window.matchMedia && window.matchMedia("(hover: none)").matches)) return;
+  if (reduce || window.matchMedia?.("(hover: none)").matches) return;
   const btns = document.querySelectorAll<HTMLElement>(
-    "#ph-app .xp-gen-btn, #ph-app .xp-gen-navcta, #ph-app .xp-action, #ph-app .xp-au-btn, #ph-app [data-magnetic]",
+    "#ph-app .xp-tn-btn, #ph-app .xp-gen-btn, #ph-app .xp-action, #ph-app [data-magnetic]",
   );
   btns.forEach((b) => {
     const xTo = gsap.quickTo(b, "x", { duration: 0.4, ease: "power3" });
@@ -89,6 +129,7 @@ export function initReveals(): void {
   }
 
   if (!reduce) headingReveals();
+  if (!reduce) decryptHeadings();
   magneticButtons();
   if (scrollTriggerReady) ScrollTrigger.refresh();
 }

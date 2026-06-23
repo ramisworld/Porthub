@@ -8,12 +8,7 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import type { DesignSpec } from "../spec";
 import type { SceneFx, SceneHandle, SceneMode, SceneOpts } from "./scene-types";
 import { createStarfield } from "./scenes/starfield";
-import { createGlassOrb } from "./scenes/glassOrb";
-import { createEnergyCube } from "./scenes/energyCube";
-import { createEnergySphere } from "./scenes/energySphere";
-import { createMorphObject } from "./scenes/morphObject";
-import { makeRng } from "./prng";
-import { rollObject } from "./rollObject";
+import { createGhostObject } from "./scenes/ghostObject";
 
 export interface WebGLHandle {
   setProgress: (progress: number, vel: number) => void;
@@ -21,29 +16,8 @@ export interface WebGLHandle {
 
 function makeScene(spec: DesignSpec, opts: SceneOpts): SceneHandle {
   switch (spec.webgl.scene) {
-    case "morphObject": {
-      const g = spec.generative;
-      const rng = makeRng(g.seed);
-      const params = rollObject(rng, g.temperament, {
-        objectComplexity: g.objectComplexity,
-        motionEnergy: g.motionEnergy,
-        density: g.density,
-      });
-      const handle = createMorphObject(opts, params, rng);
-      // Per-stage framing: fullbleed must DOMINATE the hero (it's the whole backdrop),
-      // orb/bare crop tighter. Scale to fill.
-      const stage = spec.layout.stage;
-      handle.group.scale.setScalar(
-        stage === "fullbleed" ? 1.9 : stage === "orb" ? 1.3 : stage === "bare" ? 1.15 : 1,
-      );
-      return handle;
-    }
-    case "energyCube":
-      return createEnergyCube(opts);
-    case "energySphere":
-      return createEnergySphere(opts);
-    case "glassOrb":
-      return createGlassOrb(opts);
+    case "ghostObject":
+      return createGhostObject(opts);
     case "starfield":
     default:
       return createStarfield(opts);
@@ -104,13 +78,17 @@ export function initWebGL(
     powerPreference: "high-performance",
   });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  // Fullbleed: opaque dark void so bloom glows over solid black instead of
+  // white-washing a transparent buffer (the real-GPU UnrealBloomPass bug).
+  if (!contained) renderer.setClearColor(new THREE.Color(spec.theme.bg), 1);
   let { w, h } = size();
   renderer.setSize(w, h, false);
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(60, w / h, 0.1, 2000);
-  camera.position.z =
-    spec.webgl.scene === "energyCube" ? 7.5 : spec.webgl.scene === "morphObject" ? 6.7 : 6.2;
+  camera.position.z = spec.webgl.scene === "ghostObject" ? 5.6 : 6.2;
 
   const accent = new THREE.Color(spec.theme.accent);
   const accent2 = new THREE.Color(spec.theme.accent2);
@@ -181,15 +159,8 @@ export function initWebGL(
     // Fullbleed objects are dramatic in the hero but must RECEDE for the content
     // sections below, or they wash text out. Fade the canvas as scroll leaves the
     // hero (1.0 at top → 0.22 by ~40% scroll). Contained objects stay full.
-    if (!contained) {
-      const dim = 0.22 + 0.78 * (1 - Math.min(1, progress * 2.6));
-      // Parallax: the fullbleed object drifts up + scales slightly as you scroll,
-      // so the hero feels alive (not a static backdrop).
-      const ty = -progress * 12;
-      const sc = 1 + progress * 0.12;
-      canvas.style.opacity = dim.toFixed(3);
-      canvas.style.transform = `translateY(${ty.toFixed(2)}vh) scale(${sc.toFixed(3)})`;
-    }
+    // Canvas stays fully opaque (dark void always covers the viewport — never
+    // reveals the page background). The object + rain fade THEMSELVES on scroll.
     composer.render();
     requestAnimationFrame(loop);
   };

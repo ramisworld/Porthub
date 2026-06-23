@@ -1095,3 +1095,199 @@ body:has(.xp-gen--stage-fullbleed) { background: #07070b; }
 .xp-gen--stage-fullbleed .xp-gen-rolebox { margin-top: 14px; }
 .xp-gen--stage-fullbleed .xp-gen-intro { max-width: 54ch; margin-top: 12px; }
 .xp-gen--stage-fullbleed .xp-gen-cta { margin-top: 22px; }
+
+/* ============================================================
+   GHOST_PROTOCOL — terminal × matrix × liquid-glass × cyberpunk.
+   Sections render over the fullbleed WebGL object + matrix rain.
+   ============================================================ */
+.xp-ghost {
+  --neon: var(--accent);   /* matrix green */
+  --neon2: var(--accent2); /* cyber cyan  */
+  --void: #03060a;
+  --gmono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --glass: linear-gradient(155deg, rgba(13,30,24,.74), rgba(5,11,9,.62));
+  --gborder: 1px solid color-mix(in srgb, var(--neon) 22%, transparent);
+  --gshadow: inset 0 1px 0 rgba(255,255,255,.06), 0 12px 36px rgba(0,0,0,.5);
+  background: transparent;
+  color: var(--fg);
+  font-family: var(--gmono);
+  min-height: 100vh;
+}
+body:has(.xp-ghost) { background: var(--void); }
+.xp-ghost a { color: inherit; text-decoration: none; }
+.xp-ghost ::selection { background: var(--neon); color: #02110a; }
+
+/* HUD corner frame */
+.xp-tn-frame { position: fixed; inset: 16px; z-index: 40; pointer-events: none;
+  background:
+    linear-gradient(var(--neon),var(--neon)) 0 0/26px 1px no-repeat,
+    linear-gradient(var(--neon),var(--neon)) 0 0/1px 26px no-repeat,
+    linear-gradient(var(--neon),var(--neon)) 100% 100%/26px 1px no-repeat,
+    linear-gradient(var(--neon),var(--neon)) 100% 100%/1px 26px no-repeat;
+  opacity: .55; }
+
+/* right glass rail nav */
+.xp-tn-rail { position: fixed; top: 50%; right: 22px; transform: translateY(-50%); z-index: 50;
+  display: flex; flex-direction: column; gap: 4px; align-items: flex-end;
+  padding: 12px 10px; background: linear-gradient(155deg, rgba(13,30,24,.55), rgba(5,11,9,.4));
+  backdrop-filter: blur(10px); border: 1px solid color-mix(in srgb,var(--neon) 18%,transparent); border-radius: 10px; }
+.xp-tn-rail a { display: flex; align-items: center; gap: 9px; padding: 6px 10px; border-radius: 6px;
+  font-size: 11px; letter-spacing: .14em; color: #a8d9c4; transition: color .2s, background .2s; }
+.xp-tn-rail a em { font-style: normal; color: var(--neon2); opacity: .8; }
+.xp-tn-rail a span { min-width: 64px; }
+.xp-tn-rail a::after { content: "□"; opacity: .4; }
+.xp-tn-rail a:hover { color: var(--fg); }
+.xp-tn-rail a.active { color: var(--neon); text-shadow: 0 0 12px var(--neon); }
+.xp-tn-rail a.active::after { content: "■"; opacity: 1; }
+
+.xp-tn-main { max-width: 1180px; margin: 0 auto; padding: 0 clamp(20px,5vw,72px); position: relative; z-index: 2; }
+
+/* ---- HERO ---- */
+.xp-tn-hero { min-height: 100vh; display: flex; align-items: center; }
+.xp-tn-hero-inner { position: relative; max-width: 720px; padding: 28px 0; }
+/* localized dark backing behind the hero text so it reads over the bright object */
+.xp-tn-hero-inner::before { content: ""; position: absolute; inset: -60px 26% -60px -100vw; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, rgba(3,6,10,.95) 58%, rgba(3,6,10,.55) 82%, rgba(3,6,10,0) 100%);
+  filter: blur(8px); }
+.xp-tn-status { font-size: 12px; letter-spacing: .22em; color: var(--muted); margin-bottom: 22px; }
+.xp-tn-status i { color: var(--neon2); font-style: normal; }
+.xp-tn-status b { color: var(--neon); font-weight: 400; }
+.xp-tn-name { font-family: var(--gmono); font-weight: 700; font-size: clamp(2.8rem,8vw,6.4rem); line-height: .92;
+  letter-spacing: -.02em; margin: 0; color: var(--fg);
+  text-shadow: 0 0 30px color-mix(in srgb, var(--neon) 55%, transparent); }
+.xp-tn-role { margin: 22px 0 0; font-size: clamp(15px,2vw,22px); color: var(--neon); }
+.xp-tn-caret { display: inline-block; width: .55em; height: 1.05em; margin-left: 2px; vertical-align: -2px;
+  background: var(--neon); animation: tn-blink 1.05s steps(2) infinite; }
+@keyframes tn-blink { 50% { opacity: 0; } }
+.xp-tn-copy { margin: 14px 0 0; color: var(--muted); max-width: 52ch; line-height: 1.6; font-size: 14.5px; }
+.xp-tn-cta { display: flex; gap: 12px; margin-top: 34px; }
+.xp-tn-btn { font-size: 12.5px; letter-spacing: .12em; padding: 13px 22px; color: var(--fg);
+  background: var(--glass); backdrop-filter: blur(10px); border: var(--gborder); border-radius: 7px;
+  box-shadow: var(--gshadow); transition: .2s; }
+.xp-tn-btn:hover { border-color: var(--neon); color: var(--neon); box-shadow: 0 0 24px -4px var(--neon), var(--gshadow); }
+
+/* ---- section heads ---- */
+.xp-tn-section { padding: clamp(70px,10vh,130px) 0; }
+.xp-tn-head { display: flex; align-items: center; gap: 16px; margin-bottom: 40px; }
+.xp-tn-num { font-size: 12px; color: var(--neon2); letter-spacing: .1em; }
+.xp-ghost .xp-tn-h2 { font-family: var(--gmono); font-weight: 700; font-size: clamp(1.15rem,2vw,1.7rem); text-transform: none; letter-spacing: .04em; line-height: 1.1; margin: 0; color: var(--fg); }
+.xp-ghost .xp-tn-h2 i { color: var(--neon2); font-style: normal; opacity: .7; }
+.xp-tn-rule { flex: 1; height: 1px; background: linear-gradient(90deg, color-mix(in srgb,var(--neon) 40%,transparent), transparent); }
+
+/* ---- glass window (SYS_INFO / contact) ---- */
+.xp-tn-win, .xp-tn-console { background: var(--glass); backdrop-filter: blur(16px) saturate(1.25);
+  border: var(--gborder); border-radius: 14px; box-shadow: var(--gshadow); overflow: hidden; }
+.xp-tn-winbar { display: flex; align-items: center; gap: 8px; padding: 11px 16px;
+  border-bottom: 1px solid color-mix(in srgb,var(--neon) 12%,transparent); font-size: 11px; color: var(--muted); letter-spacing: .08em; }
+.xp-tn-winbar i { width: 9px; height: 9px; border-radius: 50%; background: color-mix(in srgb,var(--neon) 40%, #0c1a14); }
+.xp-tn-winbar i:nth-child(2) { background: color-mix(in srgb,var(--neon2) 40%, #0c1a14); }
+.xp-tn-winbar span { margin-left: 8px; }
+.xp-tn-winbody { display: grid; grid-template-columns: 1.2fr 1fr; gap: clamp(24px,4vw,48px); padding: clamp(26px,4vw,44px); align-items: center; }
+.xp-tn-bio { margin: 0; font-size: clamp(16px,2vw,21px); line-height: 1.5; color: var(--fg); }
+.xp-tn-stats { display: grid; gap: 12px; }
+.xp-tn-stat { padding: 16px 18px; border: 1px solid color-mix(in srgb,var(--neon) 14%,transparent); border-radius: 9px; background: rgba(6,16,12,.4); }
+.xp-tn-stat b { display: block; font-size: 30px; font-weight: 700; line-height: 1; color: var(--neon); text-shadow: 0 0 14px color-mix(in srgb,var(--neon) 45%,transparent); }
+.xp-tn-stat span { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+/* ---- MODULES — uniform glass grid ---- */
+.xp-tn-mods { display: grid; grid-template-columns: repeat(auto-fill,minmax(220px,1fr)); gap: 12px; }
+.xp-tn-mod { position: relative; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 18px;
+  background: var(--glass); backdrop-filter: blur(10px); border: var(--gborder); border-radius: 9px; box-shadow: var(--gshadow);
+  transition: border-color .2s, box-shadow .2s, transform .2s; overflow: hidden; }
+.xp-tn-mod::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--neon2); opacity: 0; transition: opacity .2s; }
+.xp-tn-mod:hover { transform: translateY(-2px); border-color: var(--neon); box-shadow: 0 0 22px -6px var(--neon), var(--gshadow); }
+.xp-tn-mod:hover::before { opacity: 1; }
+.xp-tn-mod em { font-style: normal; font-size: 11px; color: var(--neon2); }
+.xp-tn-mod span { font-size: 13.5px; color: var(--fg); }
+.xp-tn-langs { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 22px; }
+.xp-tn-langlabel { font-size: 10.5px; letter-spacing: .16em; color: var(--muted); margin-right: 6px; }
+.xp-tn-langs span:not(.xp-tn-langlabel) { font-size: 11.5px; padding: 6px 12px; border: 1px solid color-mix(in srgb,var(--neon) 18%,transparent); border-radius: 999px; color: var(--neon); background: rgba(6,16,12,.35); }
+
+/* ---- DIR_LIST — glass file-cards ---- */
+.xp-tn-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+.xp-tn-card { position: relative; display: flex; flex-direction: column; min-height: 200px; padding: 22px;
+  background: var(--glass); backdrop-filter: blur(12px); border: var(--gborder); border-radius: 12px; box-shadow: var(--gshadow);
+  transition: transform .22s, border-color .22s, box-shadow .22s; overflow: hidden; }
+.xp-tn-card::after { content: ""; position: absolute; left: -60%; top: 0; width: 50%; height: 100%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb,var(--neon2) 22%,transparent), transparent); transition: left .5s ease; }
+.xp-tn-card:hover { transform: translateY(-4px); border-color: var(--neon); box-shadow: 0 0 30px -8px var(--neon), var(--gshadow); }
+.xp-tn-card:hover::after { left: 110%; }
+.xp-tn-card header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.xp-tn-path { font-size: 14px; color: var(--neon); font-weight: 600; letter-spacing: -.01em; }
+.xp-tn-card header small { font-size: 11px; color: var(--neon2); white-space: nowrap; }
+.xp-tn-card p { margin: 0 0 auto; font-size: 13px; line-height: 1.55; color: var(--muted); }
+.xp-tn-tech { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
+.xp-tn-tech span { font-size: 10px; padding: 4px 9px; border: 1px solid color-mix(in srgb,var(--neon) 14%,transparent); border-radius: 5px; color: var(--muted); }
+.xp-tn-go { position: absolute; top: 18px; right: 18px; font-style: normal; color: var(--neon); opacity: 0; transition: opacity .2s; }
+.xp-tn-card:hover .xp-tn-go { opacity: 1; }
+
+/* ---- PING — contact console ---- */
+.xp-tn-ping { padding-bottom: clamp(90px,12vh,150px); }
+.xp-tn-consolebody { padding: clamp(40px,6vw,72px); text-align: center; }
+.xp-tn-handshake { font-size: clamp(1.4rem,4vw,3rem); letter-spacing: .14em; color: var(--neon2); text-shadow: 0 0 22px color-mix(in srgb,var(--neon2) 50%,transparent); margin-bottom: 26px; }
+.xp-tn-mail { display: inline-flex; align-items: center; gap: 12px; background: none; border: 0; cursor: pointer;
+  font-family: var(--gmono); font-size: clamp(1rem,2.4vw,1.8rem); color: var(--neon); transition: color .2s; }
+.xp-tn-mail i { font-style: normal; opacity: .6; font-size: .7em; }
+.xp-tn-mail:hover { color: var(--fg); }
+.xp-tn-mail[data-copied="true"]::after { content: "_COPIED"; font-size: .5em; color: var(--neon2); margin-left: 8px; }
+.xp-tn-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px; margin-top: 30px; font-size: 12px; letter-spacing: .1em; color: var(--muted); }
+.xp-tn-links a { border-bottom: 1px solid transparent; padding-bottom: 2px; transition: .2s; }
+.xp-tn-links a:hover { color: var(--neon); border-color: var(--neon); }
+.xp-tn-loc { color: var(--muted); }
+
+.xp-tn-foot { display: flex; justify-content: space-between; gap: 16px; max-width: 1180px; margin: 0 auto;
+  padding: 22px clamp(20px,5vw,72px); border-top: 1px solid color-mix(in srgb,var(--neon) 10%,transparent);
+  font-size: 10.5px; letter-spacing: .12em; color: var(--muted); position: relative; z-index: 2; }
+
+@media (max-width: 860px) {
+  .xp-tn-rail { display: none; }
+  .xp-tn-winbody { grid-template-columns: 1fr; }
+  .xp-tn-grid { grid-template-columns: 1fr; }
+}
+
+/* ===== GHOST cyberpunk detail — panel accents, brackets, scan beam, glitch ===== */
+/* a faint scan beam sweeping down the whole page */
+.xp-ghost::after { content: ""; position: fixed; left: 0; right: 0; height: 140px; z-index: 41; pointer-events: none;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb,var(--neon) 7%,transparent), transparent);
+  animation: tn-scan 7s linear infinite; mix-blend-mode: screen; }
+@keyframes tn-scan { 0% { top: -160px; } 100% { top: 100%; } }
+
+/* glass panels: glowing animated top edge + corner brackets */
+.xp-tn-win, .xp-tn-console, .xp-tn-card, .xp-tn-mod { position: relative; }
+.xp-tn-win::before, .xp-tn-console::before { content: ""; position: absolute; top: 0; left: 12%; right: 12%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--neon2), transparent); opacity: .8;
+  box-shadow: 0 0 12px var(--neon2); animation: tn-edge 3.5s ease-in-out infinite; }
+@keyframes tn-edge { 0%,100% { opacity: .25; } 50% { opacity: .9; } }
+.xp-tn-win, .xp-tn-console {
+  background-image:
+    linear-gradient(var(--neon),var(--neon)) , linear-gradient(var(--neon),var(--neon)),
+    linear-gradient(var(--neon),var(--neon)) , linear-gradient(var(--neon),var(--neon)), var(--glass);
+  background-repeat: no-repeat;
+  background-size: 14px 1px, 1px 14px, 14px 1px, 1px 14px, auto;
+  background-position: 10px 10px, 10px 10px, calc(100% - 10px) calc(100% - 10px), calc(100% - 10px) calc(100% - 10px), 0 0; }
+
+/* animated section rule — a glowing pulse travels along it */
+.xp-tn-rule { position: relative; overflow: visible; }
+.xp-tn-rule::after { content: ""; position: absolute; top: -1px; left: 0; width: 40px; height: 3px;
+  background: var(--neon2); box-shadow: 0 0 12px var(--neon2); border-radius: 2px;
+  animation: tn-rule 4s linear infinite; }
+@keyframes tn-rule { 0% { left: 0; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
+
+/* hero name glitch flicker */
+.xp-tn-name { position: relative; }
+.xp-tn-name::after { content: attr(data-text); position: absolute; left: 0; top: 0; color: var(--neon2);
+  clip-path: inset(0 0 0 0); opacity: 0; mix-blend-mode: screen; animation: tn-glitch 6s steps(1) infinite; }
+@keyframes tn-glitch {
+  0%,97%,100% { opacity: 0; transform: translate(0,0); }
+  97.5% { opacity: .6; transform: translate(-3px,1px); clip-path: inset(20% 0 55% 0); }
+  98.5% { opacity: .6; transform: translate(2px,-1px); clip-path: inset(60% 0 18% 0); }
+}
+
+/* richer hover — neon border trace + lift on modules & stats */
+.xp-tn-mod, .xp-tn-stat { transition: transform .2s, border-color .2s, box-shadow .2s; }
+.xp-tn-stat:hover { transform: translateY(-2px); border-color: var(--neon); box-shadow: 0 0 22px -6px var(--neon); }
+.xp-tn-stat b { transition: text-shadow .2s; }
+.xp-tn-stat:hover b { text-shadow: 0 0 18px var(--neon); }
+.xp-tn-winbar i { box-shadow: 0 0 8px currentColor; }
+/* pulsing live dot in the winbar's first slot */
+.xp-tn-winbar i:first-child { background: var(--neon); animation: tn-blink 1.4s infinite; }

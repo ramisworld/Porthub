@@ -97,12 +97,7 @@ export const BUTTON_SKINS = ["solid", "outline", "ghost", "terminal"] as const;
 // --- Premium (Engine v2) registries: WebGL scene, postprocessing, cursor, boot.
 export const WEBGL_SCENES = [
   "starfield",
-  "glassOrb",
-  "energyCube",
-  "energySphere",
-  "morphObject", // procedural object — rolled from seed+temperament (generative engine)
-  "prismField",
-  "voidRings",
+  "ghostObject", // GHOST_PROTOCOL liquid-glass faceted cube-orb
   "off",
 ] as const;
 

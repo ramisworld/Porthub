@@ -82,25 +82,73 @@
       '</div>';
   }
 
+  function tnHead(num, a, b) {
+    return '<div class="xp-tn-head"><span class="xp-tn-num">' + num + '</span>' +
+      '<h2 class="xp-tn-h2">' + a + ' <i>//</i> ' + b + '</h2><span class="xp-tn-rule"></span></div>';
+  }
+
   function terminalNexus(data) {
+    var l = links(data);
+    var loc = identity(data).location || "";
     var items = [
-      { id: "hero", k: "00", label: "root" },
-      { id: "sys", k: "01", label: "sys_info" },
-      { id: "mods", k: "02", label: "modules" },
-      { id: "repos", k: "03", label: "dir_list" },
-      { id: "ping", k: "04", label: "ping" },
+      { id: "hero", k: "00", label: "ROOT" },
+      { id: "sys", k: "01", label: "SYS_INFO" },
+      { id: "mods", k: "02", label: "MODULES" },
+      { id: "repos", k: "03", label: "DIR_LIST" },
+      { id: "ping", k: "04", label: "PING" },
     ];
-    return '<div class="xp xp-terminalNexus">' + nav(items, "xp-rail") +
-      '<main class="xp-flow">' +
-      '<section id="hero" class="xp-section xp-hero"><div class="xp-kicker">LOC_INTERNET // SYS_STATUS: ONLINE</div>' +
-      '<h1 class="ph-display xp-title xp-scramble" data-text="' + esc(name(data)) + '">' + esc(name(data)) + '</h1>' +
-      '<div class="xp-role">&gt;' + esc(role(data)) + '<span></span></div><p class="xp-copyline">// ' + esc(headline(data)) + '</p>' +
-      '<div class="xp-terminal-actions"><a href="#repos">ACCESS_DATA</a><a href="#ping">PING_USER</a></div></section>' +
-      '<section id="sys" class="xp-section xp-split"><div><h2>SYS_INFO // ABOUT</h2><p>' + esc(headline(data)) + '</p></div><div class="xp-stat-stack">' + statCards(data, "terminal") + '</div></section>' +
-      '<section id="mods" class="xp-section"><h2>MODULES // ABILITIES</h2>' + abilityCloud(data, "terminal") + languageList(data, "terminal") + '</section>' +
-      '<section id="repos" class="xp-section"><h2>DIR_LIST // PROJECTS</h2><div class="xp-grid">' + projects(data, "terminal", 8) + '</div></section>' +
-      '<section id="ping" class="xp-section xp-contact"><h2>INITIATE_HANDSHAKE</h2>' + contactBlock(data, "terminal") + '</section>' +
-      '</main><div class="xp-corner xp-corner-a"></div><div class="xp-corner xp-corner-b"></div></div>';
+    var rail = '<nav class="xp-nav xp-tn-rail" aria-label="Sections">' + items.map(function (it, i) {
+      return '<a href="#' + it.id + '" class="' + (i === 0 ? "active" : "") + '"><em>' + it.k + '</em><span>' + esc(it.label) + '</span></a>';
+    }).join("") + '</nav>';
+
+    var stats = arr(data.stats).slice(0, 3).map(function (s) {
+      return '<div class="xp-tn-stat reveal"><b>' + esc(s.value) + '</b><span>' + esc(s.label) + '</span></div>';
+    }).join("");
+    var mods = abilities(data).map(function (a, i) {
+      return '<div class="xp-tn-mod reveal"><em>' + String(i + 1).padStart(2, "0") + '</em><span>' + esc(a.label) + '</span></div>';
+    }).join("");
+    var langs = arr(data.languages).map(function (x) { return '<span>' + esc(x.label) + '</span>'; }).join("");
+    var repos = arr(data.projects).slice(0, 6).map(function (p) {
+      var tech = arr(p.tech).slice(0, 4).map(function (t) { return '<span>' + esc(t) + '</span>'; }).join("");
+      var stars = p.stars ? '<small>&#9733; ' + esc(p.stars) + '</small>' : "";
+      return '<a class="xp-tn-card reveal" href="' + esc(p.repoUrl) + '" target="_blank" rel="noreferrer">' +
+        '<header><span class="xp-tn-path">&gt; ./' + esc(p.name) + '</span>' + stars + '</header>' +
+        '<p>' + esc(p.blurb || "Repository.") + '</p>' +
+        '<div class="xp-tn-tech">' + tech + '</div><i class="xp-tn-go">&#8599;</i></a>';
+    }).join("");
+
+    return '<div class="xp xp-terminalNexus xp-ghost">' + rail +
+      '<div class="xp-tn-frame"></div>' +
+      '<main class="xp-tn-main">' +
+      '<section id="hero" class="xp-tn-hero xp-hero"><div class="xp-tn-hero-inner">' +
+      '<div class="xp-tn-status">LOC_INTERNET <i>//</i> SYS_STATUS: <b>ONLINE</b></div>' +
+      '<h1 class="ph-display xp-tn-name xp-scramble" data-text="' + esc(name(data)) + '">' + esc(name(data)) + '</h1>' +
+      '<div class="xp-tn-role">&gt; ' + esc(role(data)) + '<span class="xp-tn-caret"></span></div>' +
+      '<p class="xp-tn-copy">// ' + esc(headline(data)) + '</p>' +
+      '<div class="xp-tn-cta"><a class="xp-tn-btn" href="#repos">ACCESS_DATA</a>' +
+      (l.github ? '<a class="xp-tn-btn" href="' + esc(l.github) + '" target="_blank" rel="noreferrer">PING_USER</a>' : "") +
+      '</div></div></section>' +
+      '<section id="sys" class="xp-tn-section">' + tnHead("01", "SYS_INFO", "ABOUT") +
+      '<div class="xp-tn-win"><div class="xp-tn-winbar"><i></i><i></i><i></i><span>user@ghost:~$ cat about.txt</span></div>' +
+      '<div class="xp-tn-winbody"><p class="xp-tn-bio">' + esc(headline(data)) + '</p>' +
+      '<div class="xp-tn-stats">' + stats + '</div></div></div></section>' +
+      '<section id="mods" class="xp-tn-section">' + tnHead("02", "MODULES", "CAPABILITIES") +
+      '<div class="xp-tn-mods">' + mods + '</div>' +
+      (langs ? '<div class="xp-tn-langs"><span class="xp-tn-langlabel">RUNTIME</span>' + langs + '</div>' : "") + '</section>' +
+      '<section id="repos" class="xp-tn-section">' + tnHead("03", "DIR_LIST", "PROJECTS") +
+      '<div class="xp-tn-grid">' + repos + '</div></section>' +
+      '<section id="ping" class="xp-tn-section xp-tn-ping">' + tnHead("04", "PING", "CONTACT") +
+      '<div class="xp-tn-console"><div class="xp-tn-winbar"><i></i><i></i><i></i><span>ssh // secure_channel</span></div>' +
+      '<div class="xp-tn-consolebody"><div class="xp-tn-handshake xp-scramble" data-text="INITIATE_HANDSHAKE">INITIATE_HANDSHAKE</div>' +
+      (email(data) ? '<button class="xp-tn-mail xp-copy" data-copy="' + esc(email(data)) + '">' + esc(email(data)) + '<i>&#10697;</i></button>' : '<span class="xp-tn-mail">CHANNEL_OPEN</span>') +
+      '<div class="xp-tn-links">' +
+      (l.github ? '<a href="' + esc(l.github) + '" target="_blank" rel="noreferrer">GITHUB &#8599;</a>' : "") +
+      (l.site ? '<a href="' + esc(l.site) + '" target="_blank" rel="noreferrer">WEBSITE &#8599;</a>' : "") +
+      (loc ? '<span class="xp-tn-loc">' + esc(loc) + '</span>' : "") +
+      '</div></div></div></section>' +
+      '</main>' +
+      '<footer class="xp-tn-foot"><span>ENCRYPTED_CONNECTION</span><span>' + esc(name(data)) + '</span><span>&#169; 2026 &#47;&#47; INTERNET</span></footer>' +
+      '</div>';
   }
 
   function instrument(data) {

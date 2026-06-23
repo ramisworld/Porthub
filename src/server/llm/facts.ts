@@ -71,6 +71,77 @@ const ABILITY_ALIASES: Record<string, string> = {
   docker: "Containerized delivery",
   stripe: "Payments",
   graphql: "GraphQL APIs",
+  redux: "Redux state",
+  zustand: "State management",
+  jotai: "State management",
+  mobx: "State management",
+  trpc: "tRPC APIs",
+  "@trpc/server": "tRPC APIs",
+  apollo: "GraphQL APIs",
+  "apollo-server": "GraphQL APIs",
+  "@apollo/client": "GraphQL APIs",
+  three: "WebGL / Three.js",
+  threejs: "WebGL / Three.js",
+  gsap: "Motion design",
+  "framer-motion": "Motion design",
+  d3: "Data visualization",
+  "chart.js": "Data visualization",
+  electron: "Desktop apps",
+  "react-native": "React Native",
+  expo: "React Native",
+  gatsby: "Gatsby sites",
+  remix: "Remix apps",
+  astro: "Astro sites",
+  nuxt: "Nuxt apps",
+  angular: "Angular apps",
+  "@angular/core": "Angular apps",
+  rxjs: "Reactive streams",
+  vuex: "Vue interfaces",
+  pinia: "Vue interfaces",
+  redis: "Redis",
+  ioredis: "Redis",
+  mongodb: "MongoDB",
+  mongoose: "MongoDB",
+  sequelize: "SQL ORMs",
+  typeorm: "SQL ORMs",
+  drizzle: "SQL ORMs",
+  "drizzle-orm": "SQL ORMs",
+  knex: "SQL queries",
+  mysql: "MySQL",
+  mysql2: "MySQL",
+  sqlite3: "SQLite",
+  "better-sqlite3": "SQLite",
+  firebase: "Firebase",
+  "firebase-admin": "Firebase",
+  "aws-sdk": "AWS",
+  "@aws-sdk/client-s3": "AWS",
+  kafkajs: "Event streaming",
+  "socket.io": "Realtime / WebSockets",
+  ws: "Realtime / WebSockets",
+  jsonwebtoken: "Auth & JWT",
+  passport: "Auth",
+  "next-auth": "Auth",
+  bcrypt: "Auth",
+  playwright: "E2E testing",
+  cypress: "E2E testing",
+  puppeteer: "Browser automation",
+  storybook: "Design systems",
+  "@storybook/react": "Design systems",
+  vitest: "Testing",
+  trcp: "tRPC APIs",
+  langchain: "AI integrations",
+  "@langchain/core": "AI integrations",
+  ollama: "AI integrations",
+  huggingface: "ML systems",
+  numpy: "Data / NumPy",
+  pandas: "Data / Pandas",
+  "scikit-learn": "Machine learning",
+  keras: "ML systems",
+  rust: "Rust",
+  go: "Go",
+  solidity: "Smart contracts",
+  ethers: "Web3",
+  web3: "Web3",
 };
 
 function prettyAbility(raw: string): string {
@@ -100,11 +171,31 @@ function deriveAbilities(
     });
   };
 
-  languages.forEach((l) => add(l.label, "language", Math.max(12, l.share)));
+  // Dependencies are gated to RECOGNISED tech only — the npm long-tail
+  // (clsx, babel-*, eslint-*, prop-types, polyfills…) is noise on a skill list.
+  // Languages + repo topics + primary languages always count; deps must resolve
+  // to a known ability alias to make the cut.
+  const knownDep = (d: string) =>
+    !!ABILITY_ALIASES[d.toLowerCase().replace(/^@/, "").replace(/[\s_]+/g, "-")];
+  // GitHub linguist reports build/markup files as "languages" — drop the non-skills.
+  const NOISE_LANG = new Set([
+    "makefile", "dockerfile", "roff", "tex", "batchfile", "gnuplot", "m4", "procfile",
+    "vim script", "vim snippet", "rich text format", "smarty", "ec", "hcl", "blade",
+    "mdx", "glossary", "raku", "nunjucks", "pug", "ejs", "handlebars", "gettext catalog",
+  ]);
+  const skillLang = (label: string) => !NOISE_LANG.has(label.toLowerCase());
+  languages.forEach((l) => {
+    if (skillLang(l.label)) add(l.label, "language", Math.max(12, l.share));
+  });
   repos.forEach((r) => {
-    r.topics.forEach((t) => add(t, "topic", 12));
-    r.manifest?.deps?.forEach((d) => add(d, "dependency", 8));
-    if (r.primaryLanguage?.name) add(r.primaryLanguage.name, "project language", 8);
+    r.topics.forEach((t) => {
+      if (skillLang(t)) add(t, "topic", 12);
+    });
+    r.manifest?.deps?.forEach((d) => {
+      if (knownDep(d)) add(d, "dependency", 8);
+    });
+    if (r.primaryLanguage?.name && skillLang(r.primaryLanguage.name))
+      add(r.primaryLanguage.name, "project language", 8);
   });
 
   return [...scores.values()]
@@ -127,7 +218,7 @@ function inferRole(languages: { label: string }[], repos: RawRepo[]): string {
   return "Software developer";
 }
 
-function safeUrl(s: string | null): string | undefined {
+function safeUrl(s: string | null | undefined): string | undefined {
   if (!s) return undefined;
   const v = /^https?:\/\//i.test(s) ? s : `https://${s}`;
   try {
@@ -270,7 +361,7 @@ export async function buildFacts(
       `A ${r.primaryLanguage?.name ?? "software"} project.`,
     tech: repoTech(r),
     stars: r.stargazerCount > 0 ? r.stargazerCount : undefined,
-    demoUrl: r.homepageUrl ?? undefined,
+    demoUrl: safeUrl(r.homepageUrl),
     repoUrl: r.url,
   }));
 
