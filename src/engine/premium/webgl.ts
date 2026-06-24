@@ -107,10 +107,10 @@ export function initWebGL(
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const baseBloom = spec.postfx.bloom * 1.4;
+  const baseBloom = spec.postfx.bloom * 1.32;
   let bloom: UnrealBloomPass | null = null;
   if (spec.postfx.bloom > 0.01) {
-    bloom = new UnrealBloomPass(new THREE.Vector2(w, h), baseBloom, 0.6, 0.35);
+    bloom = new UnrealBloomPass(new THREE.Vector2(w, h), baseBloom, 0.6, 0.4);
     composer.addPass(bloom);
   }
   if (spec.postfx.chromatic > 0.01) {

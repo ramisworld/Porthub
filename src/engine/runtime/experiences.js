@@ -14,6 +14,21 @@
   function role(data) { return identity(data).role || "Developer"; }
   function name(data) { return identity(data).name || "Portfolio"; }
   function headline(data) { return identity(data).headline || "Building on the internet."; }
+  // strip a github URL down to the bare handle (…/ramisworld → ramisworld)
+  function ghHandle(data) {
+    var g = github(data);
+    if (!g) return "";
+    return g.replace(/^https?:\/\/(www\.)?github\.com\//i, "").replace(/\/.*$/, "");
+  }
+  // site URL → bare host for the browser address bar (ramisworld.dev)
+  function siteHost(data) {
+    var s = l_safe(links(data).site);
+    if (!s) return "";
+    return s.replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, "");
+  }
+  function l_safe(v) { return v || ""; }
+  // one aligned key/value row for the whoami windows
+  function tnKv(k, v) { return '<div><em>' + esc(k) + '</em><span>' + esc(v) + '</span></div>'; }
 
   function abilities(data) {
     var out = arr(data.abilities);
@@ -126,15 +141,23 @@
       return '<a href="#' + it.id + '" class="' + (i === 0 ? "active" : "") + '"><em>' + it.k + '</em><span>' + esc(it.label) + '</span></a>';
     }).join("") + '</nav>';
 
-    // top OS status bar — frames the whole page as a live terminal OS
-    var osnav = items.slice(1).map(function (it) {
-      return '<a href="#' + it.id + '">./' + esc(it.label.toLowerCase()) + '</a>';
-    }).join("");
-    var osbar = '<header class="xp-tn-osbar">' +
-      '<span class="xp-tn-os-brand">GHOST_OS <b>v2.6</b> <i>//</i> ROOT</span>' +
-      '<nav class="xp-tn-os-nav">' + osnav + '</nav>' +
-      '<span class="xp-tn-os-stat">UPLINK: <b>SECURE</b> <i>//</i> <span class="xp-tn-clock">00:00:00</span> UTC</span>' +
+    // ---- top: slim terminal HUD strip only (no fake browser chrome) ----
+    var strip = '<header class="xp-tn-strip">' +
+      '<span class="xp-tn-strip-brand">RAMISWORLD <b>&gt;_</b></span>' +
+      '<span class="xp-tn-strip-up">UPLINK: <b>SECURE</b> <i class="xp-tn-blink">&#9679;</i></span>' +
+      '<span class="xp-tn-strip-r">TMP <b class="xp-tn-temp">41.2&#176;C</b> <i>//</i> <span class="xp-tn-clock">00:00:00</span> UTC</span>' +
       '</header>';
+
+    // upper-right hero nav (visual; not wired to the section IO)
+    var hnavItems = [
+      { id: "repos", label: "Work" }, { id: "repos", label: "Projects" },
+      { id: "mods", label: "Notes" }, { id: "sys", label: "About" }, { id: "ping", label: "Contact" },
+    ];
+    var hnav = '<nav class="xp-tn-hnav">' + hnavItems.map(function (it, i) {
+      return '<a href="#' + it.id + '"' + (i === 0 ? ' class="active"' : "") + '>' + esc(it.label) + '</a>';
+    }).join("") + '</nav>';
+
+    var chrome = strip;
 
     var stats = arr(data.stats).slice(0, 3).map(function (s) {
       return '<div class="xp-tn-stat reveal"><b>' + esc(s.value) + '</b><span>' + esc(s.label) + '</span></div>';
@@ -153,16 +176,44 @@
         '<div class="xp-tn-cardmeta">' + lang + stars + '<i class="xp-tn-go">&#8599;</i></div></a>';
     }).join("");
 
-    return '<div class="xp xp-terminalNexus xp-ghost">' + osbar + rail +
-      '<main class="xp-tn-main">' +
+    // hero whoami.sh — curated, compact key/values (§4a). Top 3 abilities + top
+    // 5 langs (stack capped ~52 chars, else drop to 4). Omit any absent line.
+    var focus3 = abilities(data).slice(0, 3).map(function (a) { return a.label; }).join(", ");
+    var langs5 = arr(data.languages).slice(0, 5).map(function (x) { return x.label; }).join(", ");
+    if (langs5 && langs5.length > 52) {
+      langs5 = arr(data.languages).slice(0, 4).map(function (x) { return x.label; }).join(", ");
+    }
+    // hero whoami.sh — hand-crafted target readout (exact copy for the showcase
+    // hero). Labels green, values off-white, $ prompts, one blinking cursor.
+    var whoami = '<div class="xp-tn-whoami">' +
+      '<div class="xp-tn-wbar"><div class="xp-tn-dots"><i></i><i></i><i></i></div><span>whoami.sh</span></div>' +
+      '<div class="xp-tn-wbody">' +
+      '<div class="xp-tn-wprompt">$ whoami.sh</div>' +
+      '<div class="xp-tn-kv">' +
+      tnKv("name", "Rami Alobaidy") +
+      tnKv("role", "AI Engineer") +
+      tnKv("location", "Auckland, New Zealand") +
+      tnKv("focus", "LLMs, agents, interfaces") +
+      tnKv("stack", "Python, TypeScript, PyTorch, LangChain, Next.js") +
+      tnKv("email", "rami@ramisworld.dev") +
+      tnKv("site", "ramisworld.dev") +
+      tnKv("github", "@RAMISWORLD") +
+      '</div>' +
+      '<div class="xp-tn-wprompt">$ <span class="xp-tn-caret"></span></div>' +
+      '</div></div>';
+
+    return '<div class="xp xp-terminalNexus xp-ghost">' + chrome + hnav + rail +
+      '<div class="xp-tn-scanlines" aria-hidden="true"></div>' +
+      '<div class="xp-tn-vignette" aria-hidden="true"></div>' +
       '<section id="hero" class="xp-tn-hero xp-hero"><div class="xp-tn-hero-inner">' +
-      '<div class="xp-tn-status">LOC_INTERNET <i>//</i> SYS_STATUS: <b>ONLINE</b></div>' +
-      '<h1 class="ph-display xp-tn-name xp-scramble" data-text="' + esc(name(data)) + '">' + esc(name(data)) + '</h1>' +
-      '<div class="xp-tn-role">&gt; ' + esc(role(data)) + '<span class="xp-tn-caret"></span></div>' +
-      '<p class="xp-tn-copy">// ' + esc(headline(data)) + '</p>' +
-      '<div class="xp-tn-cta"><a class="xp-tn-btn" href="#repos">ACCESS_DATA</a>' +
-      (l.github ? '<a class="xp-tn-btn" href="' + esc(l.github) + '" target="_blank" rel="noreferrer">PING_USER</a>' : "") +
-      '</div></div></section>' +
+      '<div class="xp-tn-vidx"><span>01</span><i class="xp-tn-vidx-dot"></i></div>' +
+      '<div class="xp-tn-eyebrow">AI ENGINEER</div>' +
+      '<h1 class="ph-display xp-tn-name xp-scramble" data-text="Rami Alobaidy">Rami Alobaidy</h1>' +
+      '<div class="xp-tn-underline"></div>' +
+      '<p class="xp-tn-copy">Building AI systems, agents, and interfaces.</p>' +
+      whoami +
+      '</div></section>' +
+      '<main class="xp-tn-main">' +
       '<section id="sys" class="xp-tn-section">' + tnHead("01", "SYS_INFO", "ABOUT") +
       '<div class="xp-tn-sysgrid">' +
       '<div class="xp-tn-win"><div class="xp-tn-winbar"><span>root@ghost:~# ./whoami.sh</span></div>' +
@@ -548,8 +599,13 @@
       });
     });
     var clock = document.querySelector(".xp-tn-clock");
-    if (clock) {
-      var tick = function () { clock.textContent = new Date().toISOString().slice(11, 19); };
+    var tempEl = document.querySelector(".xp-tn-temp");
+    if (clock || tempEl) {
+      var tick = function () {
+        if (clock) clock.textContent = new Date().toISOString().slice(11, 19);
+        // slow drifting fake CPU temp (~38–43°C) — feels alive, not noisy
+        if (tempEl) tempEl.textContent = (41 + Math.sin(Date.now() / 9000) * 1.6).toFixed(1) + "\u00b0C";
+      };
       tick();
       setInterval(tick, 1000);
     }

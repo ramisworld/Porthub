@@ -93,12 +93,12 @@ const FRAG = `
     float d = length(uv);
     if(d > 0.5) discard;
     float soft = smoothstep(0.5, 0.0, d);
-    // dim teal in slow regions → bright cyan → white-hot where streams bunch
-    vec3 col = mix(uCyan*0.62, uCyan, clamp(vBright, 0.0, 1.0));
-    col = mix(col, vec3(0.85, 1.0, 1.0), smoothstep(0.9, 1.5, vBright));
-    col += uGreen * 0.05 * (1.0 - clamp(vBright, 0.0, 1.0)); // faint matrix tint on the dim outer
-    float a = soft * (0.14 + vBright*0.38);
-    gl_FragColor = vec4(col*(0.5 + vBright*0.8), a);
+    // soft cyan-to-green gradient → white-hot where streams bunch. Reads as a
+    // wireframe ribbon of white/cyan/green dots, not a saturated blue cloud.
+    vec3 col = mix(uGreen*0.55, uCyan, clamp(vBright, 0.0, 1.0));
+    col = mix(col, vec3(0.92, 1.0, 1.0), smoothstep(0.7, 1.3, vBright));
+    float a = soft * (0.14 + vBright*0.42);
+    gl_FragColor = vec4(col*(0.5 + vBright*0.85), a);
   }`;
 
 export function createGhostObject(opts: SceneOpts): SceneHandle {
@@ -152,13 +152,14 @@ export function createGhostObject(opts: SceneOpts): SceneHandle {
   );
 
   // The flow cloud lives in its own subgroup so we can park it to the right and
-  // spin it slowly without touching the starfield.
+  // spin it slowly without touching the starfield. No central glow orb — the
+  // brightness comes from the filament dots/linework themselves + soft bloom.
   const obj = new THREE.Group();
   obj.add(points);
   obj.rotation.z = -0.35; // tilt → the diamond lean from the reference
 
-  // Sparse starfield void behind — a few dim drifting pale points over near-black.
-  const STAR_N = 120;
+  // Sparse starfield void behind — small, clear, sparse pale specks on black.
+  const STAR_N = 220;
   const starPos = new Float32Array(STAR_N * 3);
   for (let i = 0; i < STAR_N; i++) {
     starPos[i * 3] = (Math.random() - 0.5) * 46;
@@ -170,11 +171,11 @@ export function createGhostObject(opts: SceneOpts): SceneHandle {
   const stars = new THREE.Points(
     starGeo,
     new THREE.PointsMaterial({
-      color: new THREE.Color(0x6f8f88),
-      size: 0.045,
+      color: new THREE.Color(0xdceef8),
+      size: 0.05,
       sizeAttenuation: true,
       transparent: true,
-      opacity: 0.28,
+      opacity: 0.62,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
     }),
@@ -212,10 +213,10 @@ export function createGhostObject(opts: SceneOpts): SceneHandle {
           ? window.innerWidth / window.innerHeight
           : 16 / 9;
       const narrow = THREE.MathUtils.clamp((1.15 - aspect) / 0.55, 0, 1);
-      obj.position.x = THREE.MathUtils.lerp(2.4, 0.35, narrow);
-      obj.position.y = THREE.MathUtils.lerp(0.25, 0.08, narrow);
+      obj.position.x = THREE.MathUtils.lerp(2.0, 0.45, narrow);
+      obj.position.y = THREE.MathUtils.lerp(0.18, 0.06, narrow);
       obj.scale.setScalar(
-        THREE.MathUtils.lerp(0.82, 0.40, narrow) * (1 - progress * 0.4),
+        THREE.MathUtils.lerp(0.9, 0.44, narrow) * (1 - progress * 0.4),
       );
     },
     dispose() {

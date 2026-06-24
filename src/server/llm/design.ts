@@ -16,14 +16,14 @@ function ghostSpec(): z.input<typeof designSpecSchema> {
     experience: "terminalNexus",
     theme: {
       mode: "dark",
-      bg: "#03060a",
-      surface: "#081310",
-      fg: "#d8ffe9",
-      muted: "#5c7a6e",
+      bg: "#000202",
+      surface: "#020606",
+      fg: "#f2f5f2",
+      muted: "#9aa6a6",
       border: "#15392a",
-      accent: "#39ff14", // matrix green
-      accent2: "#00e5ff", // cyber cyan
-      glow: "#39ff14",
+      accent: "#35e88a", // refined terminal green
+      accent2: "#53eaff", // electric cyan
+      glow: "#35e88a",
       radius: "sharp",
       glass: 0.7,
     },
