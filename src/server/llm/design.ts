@@ -6,7 +6,7 @@ import type { UsageRecord } from "./cost";
 
 /**
  * GHOST_PROTOCOL — a single, hand-crafted design: an encrypted AI workstation.
- * A near-black cold void, monospace throughout, restrained green signal + cyan
+ * An almost-black void, monospace throughout, restrained green signal + muted
  * telemetry, a slow liquid-glass particle core, and deliberate (not noisy)
  * motion. Every generation renders this world. The vibe is stored but does not
  * (yet) branch the design; the GitHub copy comes from the facts layer.
@@ -17,21 +17,21 @@ function ghostSpec(): z.input<typeof designSpecSchema> {
     experience: "terminalNexus",
     theme: {
       mode: "dark",
-      bg: "#080a0a", // near-black, neutral — never blue
-      surface: "#0b0e0e",
-      fg: "#dfe3e0", // clean cool off-white — not muddy
-      muted: "#6a7072", // neutral dim grey — not green-tinted
-      border: "#141a18",
-      accent: "#34d399", // emerald 400 — refined signal, not lime
-      accent2: "#6ee7b7", // emerald 300 — subtle mint secondary
-      glow: "#34d399",
+      bg: "#010303", // almost black, neutral — never blue/teal
+      surface: "#040807",
+      fg: "#e9f0eb", // clean cool off-white — not muddy
+      muted: "#6b756f", // neutral dim grey — not green-tinted
+      border: "#101715",
+      accent: "#36d486", // refined phosphor green, not lime
+      accent2: "#80e8bd", // soft terminal mint, secondary only
+      glow: "#1e8f59",
       radius: "sharp",
       glass: 0.55,
     },
     typography: { display: "mono", body: "mono", scale: "normal" },
     background: { mode: "matrix", intensity: 0.5, speed: 0.5, parallax: 0.5 },
-    webgl: { scene: "ghostObject", intensity: 0.7 },
-    postfx: { bloom: 0.22, chromatic: 0.06, scanlines: true },
+    webgl: { scene: "ghostObject", intensity: 0.58 },
+    postfx: { bloom: 0.14, chromatic: 0.035, scanlines: true },
     cursor: "square",
     boot: "system",
     motion: "subtle",

@@ -75,7 +75,7 @@ export function initWebGL(
     canvas,
     // Bloom softens edges, so MSAA on the fullbleed scene is wasted GPU.
     antialias: contained,
-    alpha: true,
+    alpha: contained,
     powerPreference: "high-performance",
   });
   // Cap DPR hard — a fullbleed bloom scene at 2× retina is 4× the fragments for
@@ -84,10 +84,15 @@ export function initWebGL(
     Math.min(contained ? 2 : 1.5, window.devicePixelRatio || 1),
   );
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  const ghostObject = spec.webgl.scene === "ghostObject";
+  renderer.toneMappingExposure = ghostObject ? 0.72 : 1.0;
   // Fullbleed: opaque dark void so bloom glows over solid black instead of
   // white-washing a transparent buffer (the real-GPU UnrealBloomPass bug).
-  if (!contained) renderer.setClearColor(new THREE.Color(spec.theme.bg), 1);
+  if (!contained)
+    renderer.setClearColor(
+      new THREE.Color(ghostObject ? "#010303" : spec.theme.bg),
+      1,
+    );
   let { w, h } = size();
   renderer.setSize(w, h, false);
 
@@ -95,8 +100,8 @@ export function initWebGL(
   const camera = new THREE.PerspectiveCamera(60, w / h, 0.1, 2000);
   camera.position.z = spec.webgl.scene === "ghostObject" ? 5.6 : 6.2;
 
-  const accent = new THREE.Color(spec.theme.accent);
-  const accent2 = new THREE.Color(spec.theme.accent2);
+  const accent = new THREE.Color(ghostObject ? "#36d486" : spec.theme.accent);
+  const accent2 = new THREE.Color(ghostObject ? "#80e8bd" : spec.theme.accent2);
   const handle = makeScene(spec, {
     accent,
     accent2,
@@ -107,10 +112,15 @@ export function initWebGL(
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const baseBloom = spec.postfx.bloom * 1.32;
+  const baseBloom = spec.postfx.bloom * (ghostObject ? 0.46 : 1.32);
   let bloom: UnrealBloomPass | null = null;
   if (spec.postfx.bloom > 0.01) {
-    bloom = new UnrealBloomPass(new THREE.Vector2(w, h), baseBloom, 0.6, 0.4);
+    bloom = new UnrealBloomPass(
+      new THREE.Vector2(w, h),
+      baseBloom,
+      ghostObject ? 0.28 : 0.6,
+      ghostObject ? 0.74 : 0.4,
+    );
     composer.addPass(bloom);
   }
   if (spec.postfx.chromatic > 0.01) {
@@ -194,7 +204,7 @@ export function initWebGL(
     handle.update(dt, progress, vel, pointer);
     if (bloom) {
       bloomBoost *= 0.92;
-      bloom.strength = baseBloom + bloomBoost * 1.6;
+      bloom.strength = baseBloom + bloomBoost * (ghostObject ? 0.42 : 1.6);
     }
     composer.render();
   };

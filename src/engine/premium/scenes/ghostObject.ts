@@ -93,12 +93,12 @@ const FRAG = `
     float d = length(uv);
     if(d > 0.5) discard;
     float soft = smoothstep(0.5, 0.0, d);
-    // green-to-pale-green gradient, white-hot only where streams bunch. Reads
-    // as a wireframe ribbon of green/white dots — never blue, never a cloud.
-    vec3 col = mix(uGreen*0.5, uLite, clamp(vBright, 0.0, 1.0));
-    col = mix(col, vec3(0.94, 1.0, 0.95), smoothstep(0.75, 1.3, vBright));
-    float a = soft * (0.11 + vBright*0.34);
-    gl_FragColor = vec4(col*(0.45 + vBright*0.8), a);
+    // Refined phosphor linework: bright at the filaments, but restrained enough
+    // that additive particles never become a teal fog bank over the void.
+    vec3 col = mix(uGreen*0.38, uLite, clamp(vBright*0.82, 0.0, 1.0));
+    col = mix(col, vec3(0.84, 1.0, 0.89), smoothstep(0.86, 1.35, vBright));
+    float a = soft * (0.045 + vBright*0.15);
+    gl_FragColor = vec4(col*(0.28 + vBright*0.48), a);
   }`;
 
 export function createGhostObject(opts: SceneOpts): SceneHandle {
@@ -109,10 +109,10 @@ export function createGhostObject(opts: SceneOpts): SceneHandle {
   // theme's amber accent2 (kept neutral so the core never reads blue/amber).
   const lite = green.clone().lerp(new THREE.Color(0.95, 1.0, 0.95), 0.72);
 
-  // Seed ~9k points in a HOLLOW rounded shell (center stays dark), slightly
+  // Seed ~7k points in a HOLLOW rounded shell (center stays dark), slightly
   // stretched vertically. The flow field warps the shell into an organic
   // coiling silhouette. Fewer points than v1 → dimmer, more restrained.
-  const N = 9000;
+  const N = 7200;
   const pos = new Float32Array(N * 3);
   const rnd = new Float32Array(N);
   for (let i = 0; i < N; i++) {
@@ -160,26 +160,40 @@ export function createGhostObject(opts: SceneOpts): SceneHandle {
   obj.add(points);
   obj.rotation.z = -0.35; // tilt → the diamond lean from the reference
 
-  // Sparse starfield void behind — small, clear, sparse pale specks on black.
-  const STAR_N = 220;
+  // Tiny starfield void behind — many dim pale specks on black, without bloom.
+  const STAR_N = 720;
   const starPos = new Float32Array(STAR_N * 3);
+  const starCol = new Float32Array(STAR_N * 3);
+  const starWhite = new THREE.Color(0xe7eee8);
+  const starMint = new THREE.Color(0x67dca4);
+  const starCyan = new THREE.Color(0x9edbd0);
   for (let i = 0; i < STAR_N; i++) {
     starPos[i * 3] = (Math.random() - 0.5) * 46;
     starPos[i * 3 + 1] = (Math.random() - 0.5) * 30;
     starPos[i * 3 + 2] = -8 - Math.random() * 12;
+    const c =
+      Math.random() > 0.975
+        ? starMint
+        : Math.random() > 0.965
+          ? starCyan
+          : starWhite;
+    starCol[i * 3] = c.r;
+    starCol[i * 3 + 1] = c.g;
+    starCol[i * 3 + 2] = c.b;
   }
   const starGeo = new THREE.BufferGeometry();
   starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+  starGeo.setAttribute("color", new THREE.BufferAttribute(starCol, 3));
   const stars = new THREE.Points(
     starGeo,
     new THREE.PointsMaterial({
-      color: new THREE.Color(0xdfeee4),
-      size: 0.05,
+      size: 0.026,
       sizeAttenuation: true,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.3,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: THREE.NormalBlending,
+      vertexColors: true,
     }),
   );
   group.add(stars, obj);
@@ -215,10 +229,10 @@ export function createGhostObject(opts: SceneOpts): SceneHandle {
           ? window.innerWidth / window.innerHeight
           : 16 / 9;
       const narrow = THREE.MathUtils.clamp((1.15 - aspect) / 0.55, 0, 1);
-      obj.position.x = THREE.MathUtils.lerp(2.0, 0.45, narrow);
-      obj.position.y = THREE.MathUtils.lerp(0.18, 0.06, narrow);
+      obj.position.x = THREE.MathUtils.lerp(2.34, 0.46, narrow);
+      obj.position.y = THREE.MathUtils.lerp(0.16, 0.06, narrow);
       obj.scale.setScalar(
-        THREE.MathUtils.lerp(0.9, 0.44, narrow) * (1 - progress * 0.4),
+        THREE.MathUtils.lerp(0.78, 0.42, narrow) * (1 - progress * 0.4),
       );
     },
     dispose() {

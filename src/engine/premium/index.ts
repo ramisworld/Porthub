@@ -2,7 +2,11 @@ import { mountBoot } from "./boot";
 import { initCursor } from "./cursor";
 import { initWebGL, type WebGLHandle } from "./webgl";
 import { initReveals } from "./scroll";
-import { lowPowerDevice, prefersReducedMotion, webglSupported } from "./support";
+import {
+  lowPowerDevice,
+  prefersReducedMotion,
+  webglSupported,
+} from "./support";
 
 /**
  * Cheap, static fallback background for low-power devices / no-WebGL / reduced
@@ -13,7 +17,7 @@ function mountStaticVoid(animate: boolean): void {
   const wrap = document.createElement("div");
   wrap.id = "ph-void";
   wrap.style.cssText =
-    "position:fixed;inset:0;z-index:0;pointer-events:none;background:#060807;";
+    "position:fixed;inset:0;z-index:0;pointer-events:none;background:#010303;";
   const cvs = document.createElement("canvas");
   cvs.style.cssText = "position:absolute;inset:0;width:100%;height:100%;";
   wrap.appendChild(cvs);
@@ -25,16 +29,21 @@ function mountStaticVoid(animate: boolean): void {
     const ctx = cvs.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, w, h);
-    // Pure near-black space void — many tiny sparse stars, clearly visible,
-    // warm-white with a rare green speck. No cyan, no blue wash.
-    const n = Math.min(160, Math.floor((w * h) / 17000));
+    // Pure near-black space void — many tiny stars, mostly dim warm-white,
+    // with rare cyan/green phosphor specks. No full-screen haze.
+    const n = Math.min(280, Math.floor((w * h) / 11500));
     for (let i = 0; i < n; i++) {
       const x = Math.random() * w;
       const y = Math.random() * h;
-      const big = Math.random() > 0.95;
-      const r = (big ? 0.9 + Math.random() * 0.8 : 0.35 + Math.random() * 0.55) * dpr;
-      ctx.globalAlpha = big ? 0.45 + Math.random() * 0.3 : 0.18 + Math.random() * 0.32;
-      ctx.fillStyle = Math.random() > 0.95 ? "#35e88a" : "#e8f0e6";
+      const big = Math.random() > 0.965;
+      const r =
+        (big ? 0.72 + Math.random() * 0.58 : 0.28 + Math.random() * 0.42) * dpr;
+      ctx.globalAlpha = big
+        ? 0.38 + Math.random() * 0.22
+        : 0.12 + Math.random() * 0.28;
+      const rare = Math.random();
+      ctx.fillStyle =
+        rare > 0.975 ? "#55dca0" : rare > 0.955 ? "#9fded0" : "#e7eee8";
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
