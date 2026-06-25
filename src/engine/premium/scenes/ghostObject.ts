@@ -2,23 +2,22 @@ import * as THREE from "three";
 import type { SceneHandle, SceneMode, SceneOpts } from "../scene-types";
 
 /**
- * ghostObject — the GHOST_PROTOCOL centerpiece. A flowing PARTICLE FLOW FIELD
- * wrapped around a thin wireframe icosahedron core, so the shape is intentional
- * (a visible signal artifact) instead of an ambiguous cloud. ~13k fine points
- * seeded in a hollow rounded shell get advected through layered vector-noise;
- * neighbours move together into long emerald filaments that coil and breathe.
+ * ghostObject — the GHOST_PROTOCOL centerpiece. A flowing PARTICLE FLOW FIELD:
+ * ~13k fine points seeded in a hollow rounded shell get advected through
+ * layered vector-noise; neighbours move together into long emerald filaments
+ * that coil and breathe. The center stays hollow so the cloud reads as a
+ * signal artifact, not a smudge — no geometric core, just the field itself.
  *
  * It sits off to the RIGHT of the hero — the identity column reads on the left.
  *
  * Interactivity:
- *   - Mouse: points near the cursor are swirled + brightened. The core ring
- *     orients toward the pointer.
+ *   - Mouse: points near the cursor are swirled + brightened.
  *   - Scroll: the whole rig shrinks + dims a bit on the way down, then the
  *     GPU idles entirely once the hero is gone.
  *   - Mode: bumps churn + brightness at "tense" / "climax".
  *
- * Performance: pure Points + one tiny line wireframe. Noise advection runs in
- * the vertex shader only — no per-pixel surface shading. Cheap on a laptop.
+ * Performance: pure Points, one ShaderMaterial. Noise advection runs in the
+ * vertex shader only — no per-pixel surface shading. Cheap on a laptop.
  */
 const SNOISE = `
 vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x,289.0);}
@@ -158,47 +157,8 @@ export function createGhostObject(opts: SceneOpts): SceneHandle {
     }),
   );
 
-  // The intentional core — a thin twin-ring wireframe icosahedron that anchors
-  // the shape, so the cloud reads as "an artifact" not "a smudge". Two passes
-  // at slightly different scales give a faint glass shell without bloom-bombing.
-  const coreGeo = new THREE.IcosahedronGeometry(1.05, 1);
-  const coreWire = new THREE.WireframeGeometry(coreGeo);
-  const coreMat = new THREE.LineBasicMaterial({
-    color: green.clone().lerp(new THREE.Color(1, 1, 1), 0.18),
-    transparent: true,
-    opacity: 0.22,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  const coreA = new THREE.LineSegments(coreWire, coreMat);
-  const coreB = new THREE.LineSegments(
-    coreWire,
-    new THREE.LineBasicMaterial({
-      color: 0xb8f4d4,
-      transparent: true,
-      opacity: 0.1,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-  );
-  coreB.scale.setScalar(1.42);
-  coreA.renderOrder = 1;
-  coreB.renderOrder = 1;
-
-  // A tiny solid orb at dead center — gives the eye a clear focal point through
-  // the bloom. Just a few additive sprite-sized points.
-  const dotGeo = new THREE.SphereGeometry(0.18, 16, 16);
-  const dotMat = new THREE.MeshBasicMaterial({
-    color: 0xeafff3,
-    transparent: true,
-    opacity: 0.55,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-  });
-  const dot = new THREE.Mesh(dotGeo, dotMat);
-
   const obj = new THREE.Group();
-  obj.add(coreB, coreA, dot, points);
+  obj.add(points);
   obj.rotation.z = -0.35; // tilt → the diamond lean
 
   // Background starfield — kept (it sells the depth behind the object). Dim
@@ -266,11 +226,6 @@ export function createGhostObject(opts: SceneOpts): SceneHandle {
 
       spin += dt * 0.05;
       obj.rotation.y = spin;
-      // counter-rotate the inner shell so the wireframe shows shifting facets
-      coreA.rotation.x = spin * 1.3;
-      coreA.rotation.z = -0.35 + spin * 0.4;
-      coreB.rotation.x = -spin * 0.8;
-      coreB.rotation.y = spin * 1.1;
       stars.rotation.y = spin * 0.12;
 
       // pointer-track tilt — the rig leans subtly under the hand.
@@ -292,9 +247,6 @@ export function createGhostObject(opts: SceneOpts): SceneHandle {
     dispose() {
       geo.dispose();
       starGeo.dispose();
-      coreGeo.dispose();
-      coreWire.dispose();
-      dotGeo.dispose();
     },
   };
 }

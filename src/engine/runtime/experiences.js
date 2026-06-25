@@ -513,12 +513,12 @@
       esc(brand) +
       '">' +
       esc(brand) +
-      "</h1>" +
+      '<i class="xp-tn-name-rule"></i></h1>' +
       '<div class="xp-tn-roleline"><i class="xp-tn-role-dot"></i><span class="xp-tn-role">' +
       esc(role(data)) +
       '</span><span class="xp-tn-caret"></span></div>' +
       term +
-      '</div><a class="xp-tn-scroll" href="#status" aria-label="Scroll to status"><span>scroll</span><i></i></a></section>' +
+      '</div><a class="xp-tn-scroll" href="#status" aria-label="Scroll to status"><span>SCROLL // EXEC</span><i></i></a></section>' +
       '<main class="xp-tn-main">' +
       '<section id="status" class="xp-tn-section xp-tn-status">' +
       tnHead("01", "STATUS", "TELEMETRY") +
@@ -545,31 +545,73 @@
       tnFieldLog() +
       "</div></section>" +
       '<section id="ping" class="xp-tn-section xp-tn-ping">' +
-      tnHead("04", "SIGNAL", "PING") +
-      '<div class="xp-tn-console"><div class="xp-tn-panelbar"><span>root@' +
+      tnHead("04", "SIGNAL", "HANDSHAKE") +
+      '<div class="xp-tn-console xp-tn-handshake-console">' +
+      '<div class="xp-tn-panelbar"><span>root@' +
       esc(user) +
-      ':~# ./ping --secure</span><i class="xp-tn-panel-dot"></i></div>' +
-      '<div class="xp-tn-consolebody"><div class="xp-tn-handshake xp-scramble" data-text="initiate_handshake">initiate_handshake</div>' +
+      ':~# ./handshake --secure --identity</span><span class="xp-tn-conn">CONNECTED <i class="xp-tn-panel-dot"></i></span></div>' +
+      '<div class="xp-tn-consolebody">' +
+      // -- decoded "INITIATE HANDSHAKE" banner with animated bracket frame
+      '<div class="xp-tn-hs-banner">' +
+      '<span class="xp-tn-hs-bracket left">[</span>' +
+      '<span class="xp-tn-hs-title xp-scramble" data-text="INITIATE_HANDSHAKE">INITIATE_HANDSHAKE</span>' +
+      '<span class="xp-tn-hs-bracket right">]</span>' +
+      "</div>" +
+      // -- live status readout — animates between phases via CSS
+      '<div class="xp-tn-hs-status">' +
+      '<i class="xp-tn-hs-dot"></i><span>channel encrypted</span>' +
+      '<em>AES-256 / SHA-512</em>' +
+      "</div>" +
+      // -- IDENTITY block: two big copyable rows (email + github)
+      '<div class="xp-tn-hs-grid">' +
       (email(data)
-        ? '<button class="xp-tn-mail xp-copy" data-copy="' +
+        ? '<button class="xp-tn-hs-row xp-copy" data-copy="' +
           esc(email(data)) +
-          '">' +
+          '" data-magnetic>' +
+          '<span class="xp-tn-hs-k">MAIL</span>' +
+          '<span class="xp-tn-hs-v">' +
           esc(email(data)) +
-          "<i>&#10697;</i></button>"
-        : '<span class="xp-tn-mail">CHANNEL_OPEN</span>') +
-      '<div class="xp-tn-links">' +
-      (l.github
-        ? '<a href="' +
-          esc(l.github) +
-          '" target="_blank" rel="noreferrer">GITHUB &#8599;</a>'
+          "</span>" +
+          '<span class="xp-tn-hs-act"><b>COPY</b><i>&#10697;</i></span>' +
+          "</button>"
         : "") +
+      (gh
+        ? '<button class="xp-tn-hs-row xp-copy" data-copy="' +
+          esc("https://github.com/" + gh) +
+          '" data-href="' +
+          esc(l.github || ("https://github.com/" + gh)) +
+          '" data-magnetic>' +
+          '<span class="xp-tn-hs-k">GITHUB</span>' +
+          '<span class="xp-tn-hs-v">@' +
+          esc(gh) +
+          "</span>" +
+          '<span class="xp-tn-hs-act"><b>COPY</b><i>&#10697;</i></span>' +
+          "</button>"
+        : "") +
+      "</div>" +
+      // -- secondary links (open in new tab)
+      '<div class="xp-tn-hs-meta">' +
       (l.site
-        ? '<a href="' +
+        ? '<a class="xp-tn-hs-meta-link" href="' +
           esc(l.site) +
-          '" target="_blank" rel="noreferrer">WEBSITE &#8599;</a>'
+          '" target="_blank" rel="noreferrer"><span>SITE</span>' +
+          esc(host || l.site) +
+          "<i>&#8599;</i></a>"
         : "") +
-      (loc ? '<span class="xp-tn-loc">' + esc(loc) + "</span>" : "") +
-      "</div></div></div></section>" +
+      (l.github
+        ? '<a class="xp-tn-hs-meta-link" href="' +
+          esc(l.github) +
+          '" target="_blank" rel="noreferrer"><span>OPEN</span>github.com/' +
+          esc(gh || "") +
+          "<i>&#8599;</i></a>"
+        : "") +
+      (loc
+        ? '<span class="xp-tn-hs-meta-link"><span>LOC</span>' +
+          esc(loc) +
+          "</span>"
+        : "") +
+      "</div>" +
+      "</div></div></section>" +
       "</main>" +
       '<footer class="xp-tn-foot"><span>ENCRYPTED_CONNECTION</span><span>' +
       esc(brand) +
@@ -1504,51 +1546,103 @@
 
     if (!reduce && !coarse) {
       tnCardTilt();
-      tnNameMagnet();
     }
+    tnNameGlitch();
     tnTerminal(data, user);
   }
 
-  // RAMISWORLD — premium magnetic identity. The wordmark leans toward the
-  // cursor as it approaches; the lean settles back when the pointer leaves.
-  // Drives CSS custom properties (--tx, --ty) — no reflow, no layout jank.
-  // Pairs with the CSS chromatic-on-hover and idle phosphor breath.
-  function tnNameMagnet() {
-    var nameEl = document.querySelector(".xp-tn-name");
-    var hero = document.querySelector(".xp-tn-hero");
-    if (!nameEl || !hero) return;
-    var raf = 0,
-      x = 0,
-      y = 0,
-      tx = 0,
-      ty = 0;
-    function apply() {
-      raf = 0;
-      x += (tx - x) * 0.14;
-      y += (ty - y) * 0.14;
-      nameEl.style.setProperty("--tx", x.toFixed(2) + "px");
-      nameEl.style.setProperty("--ty", y.toFixed(2) + "px");
-      if (Math.abs(x - tx) > 0.2 || Math.abs(y - ty) > 0.2) {
-        raf = requestAnimationFrame(apply);
-      }
+  // RAMISWORLD — premium signal-lock glitch.
+  // On pointer enter the wordmark snaps into a short glitch sequence: a
+  // CSS-driven slice + RGB-split tear that runs once (~280ms). During that
+  // window the base text is briefly scrambled to glyph noise so it reads as
+  // a real signal decode, not a CSS toy. The colored phantoms (::before /
+  // ::after) hold the true brand letters so the wordmark stays legible.
+  // We also retrigger the glitch silently every 8-14s when idle to keep the
+  // identity feeling alive without becoming arcade noise.
+  function tnNameGlitch() {
+    var el = document.querySelector(".xp-tn-name");
+    if (!el) return;
+    var reduce =
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var brand = el.getAttribute("data-text") || el.textContent || "";
+    var rule = el.querySelector(".xp-tn-name-rule");
+    var GLYPHS = "01<>/\\[]{}#$%&*+=!?~^\u2591\u2592\u2593";
+    var running = false;
+    var idleTimer = 0;
+
+    function setText(s) {
+      // Keep the rule child intact while we swap the leading text node.
+      el.firstChild ? (el.firstChild.nodeValue = s) : (el.textContent = s);
+      if (rule && rule.parentNode !== el) el.appendChild(rule);
     }
-    hero.addEventListener("pointermove", function (e) {
-      var r = nameEl.getBoundingClientRect();
-      var cx = r.left + r.width / 2,
-        cy = r.top + r.height / 2;
-      // Pull strength is bounded so the wordmark never breaks its baseline.
-      // Distance falloff so far-away cursor positions have no pull.
-      var dx = (e.clientX - cx) / Math.max(180, r.width * 0.7);
-      var dy = (e.clientY - cy) / Math.max(120, r.height * 0.9);
-      tx = Math.max(-14, Math.min(14, dx * 9));
-      ty = Math.max(-8, Math.min(8, dy * 6));
-      if (!raf) raf = requestAnimationFrame(apply);
+
+    function scramble(durationMs) {
+      var frames = Math.max(4, Math.round(durationMs / 30));
+      var f = 0;
+      var iv = setInterval(function () {
+        f++;
+        var out = "";
+        for (var i = 0; i < brand.length; i++) {
+          var ch = brand.charAt(i);
+          if (ch === " ") {
+            out += " ";
+          } else if (Math.random() < f / frames) {
+            out += ch;
+          } else {
+            out += GLYPHS.charAt((Math.random() * GLYPHS.length) | 0);
+          }
+        }
+        setText(out);
+        if (f >= frames) {
+          clearInterval(iv);
+          setText(brand);
+        }
+      }, 30);
+    }
+
+    function fire(withScramble) {
+      if (running || reduce) return;
+      running = true;
+      el.classList.remove("glitching");
+      // Force a reflow so the class re-add restarts the keyframes.
+      // eslint-disable-next-line no-unused-expressions
+      void el.offsetWidth;
+      el.classList.add("glitching");
+      if (withScramble) scramble(260);
+      setTimeout(function () {
+        el.classList.remove("glitching");
+        running = false;
+      }, 290);
+    }
+
+    el.addEventListener("pointerenter", function () {
+      fire(true);
+      window.clearTimeout(idleTimer);
+      scheduleIdle(6000);
     });
-    hero.addEventListener("pointerleave", function () {
-      tx = 0;
-      ty = 0;
-      if (!raf) raf = requestAnimationFrame(apply);
+    el.addEventListener("pointerleave", function () {
+      // a soft retrigger on leave so the wordmark "snaps back" rather than
+      // just settling — feels more alive on the way out.
+      setTimeout(function () {
+        fire(false);
+      }, 80);
     });
+
+    function scheduleIdle(min) {
+      idleTimer = window.setTimeout(
+        function () {
+          if (document.hidden) {
+            scheduleIdle(8000);
+            return;
+          }
+          fire(false);
+          scheduleIdle(8000 + Math.random() * 6000);
+        },
+        min + Math.random() * 6000,
+      );
+    }
+    if (!reduce) scheduleIdle(7000);
   }
 
   // Project cards — 3D tilt toward the cursor (the radial glow follows via the
