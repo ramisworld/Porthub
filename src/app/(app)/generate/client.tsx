@@ -160,6 +160,12 @@ export function GenerateClient() {
         setSubmitting(false);
         return;
       }
+      // 409 → user already owns a portfolio. The server is authoritative;
+      // refresh so the page swaps to the BetaCap view.
+      if (probe.status === 409) {
+        window.location.reload();
+        return;
+      }
       if (!probe.ok) {
         const data = (await probe.json().catch(() => null)) as {
           error?: string;
@@ -294,14 +300,17 @@ async function streamGeneration(
 
       if (ev.stage === "error") {
         finished = true;
-        // Typed "github_not_found" → put the user back on the form with the
-        // inline error (matches the pre-flight UX).
         if (ev.code === "github_not_found") {
+          // Typed not-found → put the user back on the form with the inline
+          // error (matches the pre-flight UX).
           dispatch({
             type: "FORM_ERROR",
             error:
               "We couldn't find that GitHub user. Check spelling and try again.",
           });
+        } else if (ev.code === "quota_reached") {
+          // Server-side beta cap (race-loser). Refresh to the BetaCap view.
+          window.location.reload();
         } else {
           dispatch({
             type: "STREAM_ERROR",
