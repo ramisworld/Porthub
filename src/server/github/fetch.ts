@@ -227,6 +227,34 @@ function isFresh(fetchedAt: Date): boolean {
 }
 
 /**
+ * Cheap pre-flight: does this GitHub login exist? One tiny GraphQL roundtrip,
+ * no repos, no readme. Used by the /generate form to fail fast before we
+ * burn an LLM call (or even the full repo-walk) on a typo.
+ */
+export async function githubUserExists(username: string): Promise<boolean> {
+  const login = username.trim().replace(/^@/, "");
+  if (!login) return false;
+
+  // If we already cached the full profile, the user definitely exists.
+  const cached = await db.gitHubCache.findUnique({ where: { username: login } });
+  if (cached && isFresh(cached.fetchedAt)) return true;
+
+  try {
+    const gql = client();
+    const res = await gql<{ user: { id: string } | null }>(
+      /* GraphQL */ `query ($login: String!) { user(login: $login) { id } }`,
+      { login },
+    );
+    return Boolean(res.user?.id);
+  } catch {
+    // Treat network/transport errors as "unknown → assume true" so a flaky
+    // GitHub doesn't block legitimate users. The full fetch will surface a
+    // real error downstream if the user really doesn't exist.
+    return true;
+  }
+}
+
+/**
  * Fetch + select + enrich a user's public GitHub into a RawProfile.
  * Cached per-username (1h TTL) to respect the 5,000 req/hr limit.
  */

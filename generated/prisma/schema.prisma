@@ -11,21 +11,85 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// A generated portfolio. Phase 1 creates these anonymously (ownerId null);
-// Phase 2 claims them on signup. `code` is the LLM-generated self-contained page;
-// `profileData` is the editable facts layer injected into it.
+// ───────────────────────── BetterAuth (Phase 2) ─────────────────────────────
+// Field names match BetterAuth's expected schema; do not rename without also
+// adjusting the auth config. Session is server-side (DB row + httpOnly cookie).
+
+model User {
+  id            String      @id @default(cuid())
+  name          String?
+  email         String      @unique
+  emailVerified Boolean     @default(false)
+  image         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  portfolios    Portfolio[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String    @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@index([identifier])
+}
+
+// ───────────────────────── PortHub domain models ────────────────────────────
+
+// A generated portfolio. From Phase 2 onward, ownerId is always set on new rows.
+// Pre-Phase-2 rows may still be ownerless until they're claimed or pruned.
 model Portfolio {
   id             String   @id @default(cuid())
-  ownerId        String? // Clerk user id (Phase 2)
+  ownerId        String?
+  owner          User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   githubUsername String
-  slug           String   @unique // the subdomain (nanoid)
-  vibe           String // user's free-text style description
-  profileData    Json // ProfileData (see src/server/profile/model.ts)
-  designSpec     Json? // DesignSpec (see src/engine/spec.ts) — engine renders this
-  engineVersion  String? // shared engine version this recipe targets (public/engine/<v>.*)
-  code           String?  @db.Text // legacy: pre-engine generated HTML (rendered on the fly now)
-  isPublic       Boolean  @default(false) // Phase 3 gallery; MVP preview ignores this
-  customDomain   String?  @unique // Phase 4
+  slug           String   @unique
+  vibe           String
+  profileData    Json
+  designSpec     Json?
+  engineVersion  String?
+  template       String   @default("terminalNexus")
+  code           String?  @db.Text
+  isPublic       Boolean  @default(true)
+  customDomain   String?  @unique
   views          Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -34,7 +98,6 @@ model Portfolio {
   @@index([ownerId])
 }
 
-// Cache of raw GitHub fetches to respect the 5,000 req/hr limit.
 model GitHubCache {
   username  String   @id
   raw       Json

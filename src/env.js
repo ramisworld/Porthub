@@ -11,13 +11,33 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    // GitHub PAT (public read) for the GraphQL fetch. Used live even in mock mode.
-    // Optional at the env layer so the app boots without it; fetch.ts validates at call time.
+    // GitHub PAT (public read) for the server-side GraphQL scraping (different
+    // from the GitHub OAuth client below — that's for end-user sign-in).
     GITHUB_TOKEN: z.string().optional(),
-    // Anthropic key. Optional in Phase 1 (MOCK_LLM short-circuits all model calls).
     ANTHROPIC_API_KEY: z.string().optional(),
-    // When "true", facts (Haiku) and design (Opus) calls are stubbed — zero token spend.
     MOCK_LLM: z.enum(["true", "false"]).default("true"),
+
+    // ── BetterAuth ────────────────────────────────────────────────────────
+    // 32+ char random string. Generate with: `openssl rand -base64 32`
+    BETTER_AUTH_SECRET:
+      process.env.NODE_ENV === "production"
+        ? z.string().min(16)
+        : z.string().min(16).optional(),
+    // Public base URL of the app, e.g. http://localhost:3000 in dev,
+    // https://porthub.dev in prod.
+    BETTER_AUTH_URL: z.string().url().optional(),
+
+    // ── OAuth providers (end-user sign-in) ────────────────────────────────
+    GOOGLE_CLIENT_ID: z.string().optional(),
+    GOOGLE_CLIENT_SECRET: z.string().optional(),
+    GITHUB_CLIENT_ID: z.string().optional(),
+    GITHUB_CLIENT_SECRET: z.string().optional(),
+
+    // ── Email (Resend) for magic-link sign-in ─────────────────────────────
+    RESEND_API_KEY: z.string().optional(),
+    // The "from" address. Use a verified domain in prod (e.g. "PortHub <auth@porthub.dev>").
+    // In dev with no Resend key, the magic-link URL is logged to the server console.
+    EMAIL_FROM: z.string().optional(),
   },
 
   /**
@@ -40,6 +60,14 @@ export const env = createEnv({
     GITHUB_TOKEN: process.env.GITHUB_TOKEN,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     MOCK_LLM: process.env.MOCK_LLM,
+    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+    BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
+    GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    EMAIL_FROM: process.env.EMAIL_FROM,
     NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
   },
   /**

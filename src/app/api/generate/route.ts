@@ -1,5 +1,7 @@
 import { type NextRequest } from "next/server";
+import { headers as nextHeaders } from "next/headers";
 import { z } from "zod";
+import { getSession } from "~/server/auth";
 import { rateLimit } from "~/server/ratelimit";
 import { runGeneration } from "~/server/portfolio/generate";
 
@@ -28,6 +30,11 @@ function sseFrame(ev: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await getSession(await nextHeaders());
+  if (!session?.user) {
+    return json({ error: "Sign in to generate a portfolio." }, 401);
+  }
+
   let parsed: z.infer<typeof bodySchema>;
   try {
     parsed = bodySchema.parse(await req.json());
@@ -36,9 +43,11 @@ export async function POST(req: NextRequest) {
     return json({ error: msg ?? "Invalid request" }, 400);
   }
   const { username, vibe } = parsed;
+  const ownerId = session.user.id;
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-  const rl = rateLimit(`${ip}:${username.toLowerCase()}`);
+  // Per-user rate limit is the primary gate; IP is a fallback for shared
+  // accounts. 5 / 60s is enough for normal flow but quickly trips abuse.
+  const rl = rateLimit(`gen:${ownerId}`);
   if (!rl.ok) {
     return json({ error: "Too many requests. Slow down." }, 429, {
       "retry-after": String(rl.retryAfter),
@@ -116,7 +125,7 @@ export async function POST(req: NextRequest) {
       // its "connecting" state on this, before any backend work runs.
       await safeWrite(encoder.encode(sseFrame({ stage: "open" })));
 
-      for await (const event of runGeneration(username, vibe)) {
+      for await (const event of runGeneration(username, vibe, { ownerId })) {
         if (closed) break;
         await safeWrite(encoder.encode(sseFrame(event)));
       }

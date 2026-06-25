@@ -20,25 +20,50 @@ export type Stage =
   | "done"
   | "error";
 
+// Typed error codes the client switches on. Anything not enumerated here is
+// surfaced as a generic error message.
+export type GenerateErrorCode = "github_not_found" | "internal";
+
 export interface GenerateEvent {
   stage: Stage;
   message?: string;
   slug?: string;
   error?: string;
+  code?: GenerateErrorCode;
+}
+
+export interface RunGenerationOptions {
+  /** Currently signed-in user id; required from Phase 3 onward. */
+  ownerId: string;
 }
 
 /**
- * The Phase-1 pipeline: fetch → curate (in fetch) → facts → design → render-check →
- * persist. Yields progress events for the live build-log. Honors MOCK_LLM via the
- * facts/design modules.
+ * The pipeline: fetch → curate (in fetch) → facts → apply template →
+ * persist. Yields progress events for the live build-log. Honors MOCK_LLM via
+ * the facts module. The only LLM call lives inside `buildFacts`.
  */
 export async function* runGeneration(
   username: string,
   vibe: string,
+  opts: RunGenerationOptions,
 ): AsyncGenerator<GenerateEvent> {
   try {
     yield { stage: "fetching", message: "Reading your GitHub…" };
-    const profile = await fetchRawProfile(username);
+    let profile;
+    try {
+      profile = await fetchRawProfile(username);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/not found/i.test(msg)) {
+        yield {
+          stage: "error",
+          code: "github_not_found",
+          error: "We couldn't find that GitHub user.",
+        };
+        return;
+      }
+      throw err;
+    }
 
     yield { stage: "curating", message: "Curating your best work…" };
 
@@ -56,13 +81,15 @@ export async function* runGeneration(
     const slug = newSlug();
     await db.portfolio.create({
       data: {
+        ownerId: opts.ownerId,
         githubUsername: profile.user.login,
         slug,
         vibe,
         profileData: JSON.parse(JSON.stringify(data)) as Prisma.InputJsonValue,
         designSpec: JSON.parse(JSON.stringify(spec)) as Prisma.InputJsonValue,
         engineVersion: ENGINE_VERSION,
-        isPublic: false,
+        template: "terminalNexus",
+        isPublic: true,
       },
     });
 
@@ -71,6 +98,7 @@ export async function* runGeneration(
   } catch (err) {
     yield {
       stage: "error",
+      code: "internal",
       error: err instanceof Error ? err.message : "Generation failed.",
     };
   }

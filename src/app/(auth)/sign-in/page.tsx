@@ -1,20 +1,17 @@
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getSession } from "~/server/auth";
-import { GenerateClient } from "./client";
-import { SignOutButton } from "./sign-out-button";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { getSession, isAuthProviderConfigured } from "~/server/auth";
+import { SignInForm } from "./form";
 
 export const dynamic = "force-dynamic";
 
-export default async function GeneratePage() {
-  // Belt and braces — the (app) layout already redirects unauth users.
-  // Resolving the session here also lets us greet the user by name.
+export default async function SignInPage() {
+  // Returning users with a valid PortHub session skip auth and continue.
   const session = await getSession(await headers());
-  if (!session?.user) redirect("/sign-in?next=/generate");
+  if (session?.user) redirect("/generate");
 
-  const displayName =
-    session.user.name?.split(" ")[0] ?? session.user.email?.split("@")[0] ?? null;
+  const providers = isAuthProviderConfigured();
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#06060a] text-white antialiased [font-feature-settings:'ss01','cv11']">
@@ -28,18 +25,24 @@ export default async function GeneratePage() {
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.7)]" />
           PortHub
         </Link>
-        <div className="flex items-center gap-4 text-[12px] text-white/45">
-          {displayName && (
-            <span className="hidden sm:inline">
-              Signed in as <span className="text-white/80">{displayName}</span>
-            </span>
-          )}
-          <SignOutButton />
-        </div>
+        <Link href="/" className="text-sm text-white/50 transition hover:text-white">
+          ← Home
+        </Link>
       </nav>
 
-      <section className="relative z-10 mx-auto flex min-h-[calc(100vh-88px)] max-w-2xl flex-col items-center justify-center px-6 pb-24">
-        <GenerateClient />
+      <section className="relative z-10 mx-auto flex min-h-[calc(100vh-88px)] max-w-md flex-col items-center justify-center px-6 pb-24">
+        <h1 className="text-center text-3xl font-medium tracking-tight sm:text-4xl">
+          Sign in to PortHub
+        </h1>
+        <p className="mt-3 text-center text-[15px] text-white/55">
+          Create an account or sign back in. No passwords.
+        </p>
+
+        <SignInForm providers={providers} />
+
+        <p className="mt-8 max-w-sm text-center text-[11.5px] leading-relaxed text-white/30">
+          By continuing you agree to our terms. Sessions last 30 days.
+        </p>
       </section>
 
       <div
@@ -58,7 +61,7 @@ function BackgroundDecor() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(55% 45% at 50% 25%, rgba(54,212,134,0.10), transparent 70%),radial-gradient(50% 40% at 80% 80%, rgba(108,123,255,0.16), transparent 70%),radial-gradient(40% 30% at 15% 85%, rgba(154,108,255,0.12), transparent 70%)",
+            "radial-gradient(60% 50% at 50% 20%, rgba(108,123,255,0.18), transparent 70%),radial-gradient(50% 40% at 80% 80%, rgba(154,108,255,0.14), transparent 70%),radial-gradient(40% 30% at 20% 85%, rgba(64,128,255,0.12), transparent 70%)",
         }}
       />
       <div

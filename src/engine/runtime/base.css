@@ -4084,103 +4084,99 @@ body:has(.xp-ghost) {
   font-size: 12.5px;
   caret-color: color-mix(in srgb, var(--neon) 82%, #eafff3);
 }
+
+/* Interactive shell output — appended into .xp-tn-term-body by tnTerminal().
+   `pre-wrap` preserves the column layout of `ls -l` / `cat`; directories use
+   the brand neon to read at a glance. */
+.xp-tn-tline {
+  font-family: var(--gmono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 2px;
+}
+.xp-tn-tline.xp-tn-tcmd {
+  margin-top: 8px;
+  color: var(--ink);
+}
+.xp-tn-tprompt-u {
+  color: var(--neon);
+}
+.xp-tn-tprompt-s {
+  color: var(--dim);
+  margin-right: 4px;
+}
+.xp-tn-tdir {
+  color: var(--neon);
+}
+.xp-tn-tperm {
+  color: var(--dim);
+}
+.xp-tn-terr {
+  color: #ff9a93;
+}
+
 /* SCROLL CUE — a real HUD signal. Two stacked label rows above a vertical
    neon track; a packet of light slides down the track on loop. Strong
    enough to register at a glance, restrained enough to stay premium. */
-.xp-tn-scroll {
+/* Hero scroll cue — non-interactive, pure visual hint. A white mouse-wheel
+   silhouette with a dot that drops down inside, plus a soft chevron under it.
+   pointer-events:none guarantees this never intercepts a click; the rail nav
+   on the right is the actual scroll affordance. */
+.xp-tn-scrollcue {
   position: absolute;
   left: 50%;
-  bottom: 36px;
+  bottom: 32px;
   transform: translateX(-50%);
   z-index: 6;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 10px 18px 6px;
-  color: #d6e7df;
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  background: linear-gradient(
-    180deg,
-    rgba(2, 6, 5, 0.45),
-    rgba(2, 6, 5, 0.1)
-  );
-  backdrop-filter: blur(8px) saturate(1.15);
-  border: 1px solid color-mix(in srgb, var(--neon) 22%, transparent);
-  border-radius: 999px;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
-    0 8px 28px rgba(0, 0, 0, 0.5),
-    0 0 22px -10px var(--neon);
-  transition:
-    border-color 0.25s,
-    color 0.25s,
-    box-shadow 0.25s,
-    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-  opacity: 0.98;
+  gap: 10px;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.88;
 }
-.xp-tn-scroll:hover {
-  color: #ffffff;
-  border-color: color-mix(in srgb, var(--neon) 55%, transparent);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
-    0 10px 32px rgba(0, 0, 0, 0.55),
-    0 0 30px -8px var(--neon);
-  transform: translateX(-50%) translateY(-2px);
-}
-.xp-tn-scroll > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--neon);
-}
-.xp-tn-scroll > span::before,
-.xp-tn-scroll > span::after {
-  content: "";
-  display: inline-block;
-  width: 16px;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--neon) 70%, transparent),
-    transparent
-  );
-}
-.xp-tn-scroll i {
-  width: 1px;
-  height: 38px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--neon) 85%, transparent),
-    transparent
-  );
+.xp-tn-scrollcue-wheel {
   position: relative;
-  overflow: hidden;
-  margin-top: 4px;
+  width: 22px;
+  height: 36px;
+  border: 1.5px solid rgba(255, 255, 255, 0.78);
+  border-radius: 12px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0)
+  );
+  box-shadow:
+    0 0 18px -10px rgba(255, 255, 255, 0.55),
+    inset 0 0 8px rgba(255, 255, 255, 0.04);
 }
-.xp-tn-scroll i::after {
+.xp-tn-scrollcue-wheel::after {
   content: "";
   position: absolute;
-  left: -1.5px;
-  top: -12px;
-  width: 4px;
-  height: 12px;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    color-mix(in srgb, var(--neon) 90%, #ffffff)
-  );
+  left: 50%;
+  top: 6px;
+  width: 2.5px;
+  height: 7px;
+  background: rgba(255, 255, 255, 0.92);
   border-radius: 2px;
-  box-shadow: 0 0 8px color-mix(in srgb, var(--neon) 85%, transparent);
-  animation: tn-scroll-drop 1.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  transform: translateX(-50%);
+  animation: tn-scrollcue-dot 1.7s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
-@keyframes tn-scroll-drop {
+.xp-tn-scrollcue-chev {
+  width: 9px;
+  height: 9px;
+  border-right: 1.5px solid rgba(255, 255, 255, 0.7);
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.7);
+  transform: rotate(45deg);
+  animation: tn-scrollcue-chev 1.7s ease-in-out infinite;
+}
+@keyframes tn-scrollcue-dot {
   0% {
-    transform: translateY(0);
+    transform: translate(-50%, 0);
     opacity: 0;
   }
   18% {
@@ -4190,14 +4186,39 @@ body:has(.xp-ghost) {
     opacity: 1;
   }
   100% {
-    transform: translateY(50px);
+    transform: translate(-50%, 14px);
     opacity: 0;
+  }
+}
+@keyframes tn-scrollcue-chev {
+  0%,
+  100% {
+    transform: translateY(0) rotate(45deg);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translateY(4px) rotate(45deg);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xp-tn-scrollcue-wheel::after,
+  .xp-tn-scrollcue-chev {
+    animation: none;
   }
 }
 
 /* ---- section heads ---- */
 .xp-tn-section {
   padding: clamp(64px, 11vh, 132px) 0;
+  /* The top HUD is 46px tall + a sticky scroll-progress hairline; smooth-scroll
+     anchor jumps need that clearance so the section header doesn't land hidden
+     underneath. The hero is the document's natural start so it doesn't need
+     this — only the rail-nav targets do. */
+  scroll-margin-top: 64px;
+}
+#hero {
+  scroll-margin-top: 0;
 }
 .xp-tn-head {
   display: flex;
@@ -4983,7 +5004,7 @@ body:has(.xp-ghost) {
   .xp-tn-term {
     max-width: 100%;
   }
-  .xp-tn-scroll {
+  .xp-tn-scrollcue {
     bottom: 18px;
   }
 }

@@ -20,8 +20,13 @@
   function github(data) {
     return links(data).github || "";
   }
+  // Authored fallback — the data layer can't synthesize a real address (the
+  // MOCK_LLM=true path leaves links.email empty whenever GitHub doesn't expose
+  // one), so the engine guarantees a useful contact target instead of hiding
+  // the field. Live mode still wins whenever the user has set a real email.
+  var EMAIL_FALLBACK = "rameonix@gmail.com";
   function email(data) {
-    return links(data).email || "";
+    return links(data).email || EMAIL_FALLBACK;
   }
   function role(data) {
     return identity(data).role || "Developer";
@@ -518,7 +523,11 @@
       esc(role(data)) +
       '</span><span class="xp-tn-caret"></span></div>' +
       term +
-      '</div><a class="xp-tn-scroll" href="#status" aria-label="Scroll to status"><span>SCROLL // EXEC</span><i></i></a></section>' +
+      // Non-interactive scroll cue — a white mouse-wheel hint with a
+      // chevron, purely decorative. pointer-events:none on the wrapper means
+      // it can never steal a click (and `aria-hidden` keeps it out of the AT
+      // tree since the rail already exposes navigation).
+      '</div><div class="xp-tn-scrollcue" aria-hidden="true"><span class="xp-tn-scrollcue-wheel"></span><span class="xp-tn-scrollcue-chev"></span></div></section>' +
       '<main class="xp-tn-main">' +
       '<section id="status" class="xp-tn-section xp-tn-status">' +
       tnHead("01", "STATUS", "TELEMETRY") +
@@ -562,32 +571,20 @@
       '<i class="xp-tn-hs-dot"></i><span>channel encrypted</span>' +
       '<em>AES-256 / SHA-512</em>' +
       "</div>" +
-      // -- IDENTITY block: two big copyable rows (email + github)
+      // -- IDENTITY block: one big copyable row (email). The GitHub handle
+      // already shows up in the secondary meta strip below — duplicating it
+      // here as a "GITHUB … COPY" row was visually misleading (the value
+      // people expect to copy from a labelled MAIL row is a mail address).
       '<div class="xp-tn-hs-grid">' +
-      (email(data)
-        ? '<button class="xp-tn-hs-row xp-copy" data-copy="' +
-          esc(email(data)) +
-          '" data-magnetic>' +
-          '<span class="xp-tn-hs-k">MAIL</span>' +
-          '<span class="xp-tn-hs-v">' +
-          esc(email(data)) +
-          "</span>" +
-          '<span class="xp-tn-hs-act"><b>COPY</b><i>&#10697;</i></span>' +
-          "</button>"
-        : "") +
-      (gh
-        ? '<button class="xp-tn-hs-row xp-copy" data-copy="' +
-          esc("https://github.com/" + gh) +
-          '" data-href="' +
-          esc(l.github || ("https://github.com/" + gh)) +
-          '" data-magnetic>' +
-          '<span class="xp-tn-hs-k">GITHUB</span>' +
-          '<span class="xp-tn-hs-v">@' +
-          esc(gh) +
-          "</span>" +
-          '<span class="xp-tn-hs-act"><b>COPY</b><i>&#10697;</i></span>' +
-          "</button>"
-        : "") +
+      '<button class="xp-tn-hs-row xp-copy" data-copy="' +
+      esc(email(data)) +
+      '" data-magnetic>' +
+      '<span class="xp-tn-hs-k">MAIL</span>' +
+      '<span class="xp-tn-hs-v">' +
+      esc(email(data)) +
+      "</span>" +
+      '<span class="xp-tn-hs-act"><b>COPY</b><i>&#10697;</i></span>' +
+      "</button>" +
       "</div>" +
       // -- secondary links (open in new tab)
       '<div class="xp-tn-hs-meta">' +
@@ -1492,6 +1489,30 @@
       setInterval(tick, 1000);
     }
     var navLinks = document.querySelectorAll(".xp-nav a");
+    // Hijack in-page anchor clicks (e.g. the right-side TerminalNexus rail) so
+    // we always smooth-scroll into the section — and so the section header
+    // clears the fixed top HUD instead of disappearing underneath it. External
+    // links (no leading "#") are left untouched for the browser to handle.
+    var reduce =
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    navLinks.forEach(function (a) {
+      var href = a.getAttribute("href") || "";
+      if (href.charAt(0) !== "#" || href.length < 2) return;
+      a.addEventListener("click", function (ev) {
+        var id = href.slice(1);
+        var el = document.getElementById(id);
+        if (!el) return;
+        ev.preventDefault();
+        el.scrollIntoView({
+          behavior: reduce ? "auto" : "smooth",
+          block: "start",
+        });
+        // Reflect the destination in the URL without pushing a new history
+        // entry on every nav click.
+        if (history.replaceState) history.replaceState(null, "", href);
+      });
+    });
     if ("IntersectionObserver" in window && navLinks.length) {
       var byId = {};
       navLinks.forEach(function (a) {
@@ -1663,22 +1684,418 @@
     });
   }
 
-  // The interactive terminal — deliberately restrained. The default whoami.sh
-  // readout stays fixed; users can focus and type without turning the hero into
-  // a noisy toy terminal.
+  // The interactive terminal — a real (tiny) POSIX-ish shell over a virtual
+  // filesystem synthesized from the visitor's ProfileData. The goal isn't to
+  // emulate bash; it's to reward curiosity: ls/ls -a/ls -la, pwd, whoami, cat,
+  // echo, cd, clear, history, date, uname, man, help, exit. Output is appended
+  // to the same scrollback as the default whoami.sh card so the transcript
+  // feels continuous, and Up/Down navigate the command history.
   function tnTerminal(data, user) {
     var term = document.getElementById("ph-term");
     var out = document.getElementById("ph-term-out");
     var input = document.getElementById("ph-term-input");
     if (!term || !out || !input) return;
 
+    var cwd = "~";
+    var hist = [];
+    var histIdx = 0; // points one past the last entry → "fresh line"
+
+    // --- virtual filesystem, derived from real ProfileData -----------------
+    var langs = arr(data.languages).map(function (l) {
+      return l.label;
+    });
+    var stackStr = tnStack(data);
+    var projs = arr(data.projects).slice(0, 8);
+    var ident = identity(data);
+    var contactTxt =
+      "name:   " +
+      (ident.name || user) +
+      "\nrole:   " +
+      (ident.role || "—") +
+      "\nemail:  " +
+      email(data) +
+      (links(data).github ? "\ngithub: " + links(data).github : "") +
+      (links(data).site ? "\nsite:   " + links(data).site : "") +
+      "\n";
+    var skillsTxt = langs.length ? langs.join("\n") + "\n" : "(none)\n";
+    var projectsJson = JSON.stringify(
+      projs.map(function (p) {
+        return {
+          name: p.name,
+          blurb: p.blurb,
+          tech: arr(p.tech).slice(0, 6),
+          stars: p.stars || 0,
+          url: p.repoUrl || "",
+        };
+      }),
+      null,
+      2,
+    );
+    var fieldLogTxt =
+      TN_LOG.map(function (e) {
+        return (
+          e.t + "  " + e.hash + "  " + e.src + "\n  " + e.k + " — " + e.b
+        );
+      }).join("\n\n") + "\n";
+
+    // Two-tier tree: root → ~/ + children. Anything outside ~ is virtualized
+    // away (cd /etc returns the "no such file" you'd expect).
+    var FS = {
+      "~": {
+        type: "dir",
+        children: {
+          "whoami.sh": {
+            type: "file",
+            text:
+              "#!/bin/sh\n# Identity card renderer.\n# Re-runs are no-op — the card is already on screen.\n",
+          },
+          "skills.txt": { type: "file", text: skillsTxt },
+          "stack.txt": { type: "file", text: stackStr + "\n" },
+          "projects.json": { type: "file", text: projectsJson + "\n" },
+          "contact.txt": { type: "file", text: contactTxt },
+          "field.log": { type: "file", text: fieldLogTxt },
+          ".bashrc": {
+            type: "file",
+            text:
+              "# minimal\nalias ll='ls -lA'\nalias la='ls -A'\nexport PS1='\\u@\\h:\\w$ '\n",
+          },
+          ".ssh": {
+            type: "dir",
+            children: {
+              id_ed25519: { type: "file", text: "[REDACTED]\n" },
+              "id_ed25519.pub": {
+                type: "file",
+                text: "ssh-ed25519 AAAA... " + user + "@ghost\n",
+              },
+              known_hosts: {
+                type: "file",
+                text: "github.com ssh-rsa AAAA...\n",
+              },
+            },
+          },
+        },
+      },
+    };
+
+    // --- helpers -----------------------------------------------------------
+    function escHtml(s) {
+      return PH.esc(s);
+    }
+    // Resolve `path` against `cwd`, returning the FS node or null.
+    function resolve(path) {
+      if (!path || path === "." || path === "./") return nodeAt(cwd);
+      if (path === "~" || path === "~/") return FS["~"];
+      // we ignore absolute paths into the host root — this isn't your laptop.
+      if (path.charAt(0) === "/") return null;
+      var base = cwd.replace(/^~\/?/, "").split("/").filter(Boolean);
+      var p = path.replace(/^~\/?/, "").split("/").filter(Boolean);
+      var stack = path.charAt(0) === "~" ? [] : base.slice();
+      for (var i = 0; i < p.length; i++) {
+        if (p[i] === ".") continue;
+        if (p[i] === "..") {
+          stack.pop();
+          continue;
+        }
+        stack.push(p[i]);
+      }
+      return nodeAtParts(stack);
+    }
+    function nodeAt(path) {
+      var parts = path.replace(/^~\/?/, "").split("/").filter(Boolean);
+      return nodeAtParts(parts);
+    }
+    function nodeAtParts(parts) {
+      var node = FS["~"];
+      for (var i = 0; i < parts.length; i++) {
+        if (node.type !== "dir") return null;
+        node = node.children[parts[i]];
+        if (!node) return null;
+      }
+      return node;
+    }
+    function cwdToFsPath(c) {
+      return c === "~"
+        ? "~"
+        : "~/" + c.replace(/^~\/?/, "");
+    }
+    function cwdToAbs(c) {
+      var rel = c.replace(/^~\/?/, "");
+      return "/home/" + user + (rel ? "/" + rel : "");
+    }
+    function fmtSize(n) {
+      var s = String(n);
+      while (s.length < 4) s = " " + s;
+      return s;
+    }
+    function fmtLs(node, opts) {
+      var names = Object.keys(node.children);
+      if (!opts.all) {
+        names = names.filter(function (n) {
+          return n.charAt(0) !== ".";
+        });
+      } else if (opts.all && !opts.almostAll) {
+        names = [".", ".."].concat(names);
+      }
+      names.sort();
+      if (opts.long) {
+        return names
+          .map(function (n) {
+            if (n === "." || n === "..")
+              return (
+                '<span class="xp-tn-tperm">drwxr-xr-x</span>  ' +
+                fmtSize(0) +
+                "  " +
+                '<span class="xp-tn-tdir">' +
+                escHtml(n) +
+                "</span>"
+              );
+            var c = node.children[n];
+            var isDir = c.type === "dir";
+            var perm = isDir ? "drwxr-xr-x" : "-rw-r--r--";
+            var size = isDir
+              ? 0
+              : (c.text || "").length;
+            return (
+              '<span class="xp-tn-tperm">' +
+              perm +
+              "</span>  " +
+              fmtSize(size) +
+              "  " +
+              (isDir
+                ? '<span class="xp-tn-tdir">' + escHtml(n) + "/</span>"
+                : escHtml(n))
+            );
+          })
+          .join("\n");
+      }
+      return names
+        .map(function (n) {
+          if (n === "." || n === "..")
+            return '<span class="xp-tn-tdir">' + escHtml(n) + "</span>";
+          var c = node.children[n];
+          return c.type === "dir"
+            ? '<span class="xp-tn-tdir">' + escHtml(n) + "</span>"
+            : escHtml(n);
+        })
+        .join("  ");
+    }
+
+    function promptHtml() {
+      return (
+        '<span class="xp-tn-tprompt-u">root@' +
+        escHtml(user) +
+        '</span><span class="xp-tn-tprompt-s">:' +
+        escHtml(cwd) +
+        "$</span>"
+      );
+    }
+    function emit(html, cls) {
+      var div = document.createElement("div");
+      div.className = "xp-tn-tline" + (cls ? " " + cls : "");
+      div.innerHTML = html;
+      out.appendChild(div);
+      out.scrollTop = out.scrollHeight;
+    }
+
+    // --- commands ----------------------------------------------------------
+    var CMD = {
+      help: function () {
+        return (
+          "commands: ls, ls -a, ls -l, ls -la, pwd, whoami, cat &lt;file&gt;, " +
+          "echo &lt;text&gt;, cd &lt;dir&gt;, clear, history, date, uname [-a], " +
+          "man &lt;cmd&gt;, exit"
+        );
+      },
+      ls: function (args) {
+        var flags = "";
+        var target = null;
+        for (var i = 0; i < args.length; i++) {
+          if (args[i].charAt(0) === "-") flags += args[i].slice(1);
+          else if (!target) target = args[i];
+        }
+        var opts = {
+          all: /[aA]/.test(flags),
+          almostAll: flags.indexOf("A") >= 0 && flags.indexOf("a") < 0,
+          long: flags.indexOf("l") >= 0,
+        };
+        var node = target ? resolve(target) : resolve(cwd);
+        if (!node)
+          return {
+            err: "ls: cannot access '" + escHtml(target || "") + "': No such file or directory",
+          };
+        if (node.type === "file") return target || "";
+        return fmtLs(node, opts);
+      },
+      pwd: function () {
+        return cwdToAbs(cwd);
+      },
+      whoami: function () {
+        return escHtml(user);
+      },
+      hostname: function () {
+        return "ghost";
+      },
+      cat: function (args) {
+        if (!args.length) return { err: "cat: missing operand" };
+        return args
+          .map(function (a) {
+            var n = resolve(a);
+            if (!n)
+              return (
+                '<span class="xp-tn-terr">cat: ' +
+                escHtml(a) +
+                ": No such file or directory</span>"
+              );
+            if (n.type !== "file")
+              return (
+                '<span class="xp-tn-terr">cat: ' +
+                escHtml(a) +
+                ": Is a directory</span>"
+              );
+            return escHtml(n.text);
+          })
+          .join("\n");
+      },
+      echo: function (args) {
+        return escHtml(args.join(" "));
+      },
+      cd: function (args) {
+        var to = args[0] || "~";
+        if (to === "~" || to === "/" || to === "/home/" + user) {
+          cwd = "~";
+          return null;
+        }
+        var n = resolve(to);
+        if (!n)
+          return {
+            err:
+              "cd: " +
+              escHtml(to) +
+              ": No such file or directory",
+          };
+        if (n.type !== "dir")
+          return {
+            err: "cd: " + escHtml(to) + ": Not a directory",
+          };
+        // Recompute cwd as a normalized ~-relative path.
+        var base = cwd.replace(/^~\/?/, "").split("/").filter(Boolean);
+        var rel = to.replace(/^~\/?/, "").split("/").filter(Boolean);
+        var stack = to.charAt(0) === "~" ? [] : base;
+        for (var i = 0; i < rel.length; i++) {
+          if (rel[i] === ".") continue;
+          if (rel[i] === "..") {
+            stack.pop();
+            continue;
+          }
+          stack.push(rel[i]);
+        }
+        cwd = stack.length ? "~/" + stack.join("/") : "~";
+        return null;
+      },
+      clear: function () {
+        out.innerHTML = "";
+        return null;
+      },
+      date: function () {
+        return escHtml(new Date().toUTCString());
+      },
+      uname: function (args) {
+        if (args.indexOf("-a") >= 0)
+          return "GHOST ghost 6.6.0-ghost #1 SMP PREEMPT x86_64 GNU/Linux";
+        return "GHOST";
+      },
+      history: function () {
+        if (!hist.length) return "";
+        return hist
+          .map(function (h, i) {
+            var n = ("    " + (i + 1)).slice(-4);
+            return n + "  " + escHtml(h);
+          })
+          .join("\n");
+      },
+      man: function (args) {
+        if (!args.length) return { err: "What manual page do you want?" };
+        return (
+          "No manual entry for " +
+          escHtml(args[0]) +
+          " — try `help`."
+        );
+      },
+      exit: function () {
+        return "logout. (session preserved — refresh to reconnect.)";
+      },
+    };
+    CMD.ll = function () {
+      return CMD.ls(["-lA"]);
+    };
+    CMD.la = function () {
+      return CMD.ls(["-A"]);
+    };
+    CMD.logout = CMD.exit;
+    CMD["./whoami.sh"] = function () {
+      // The card is already on screen as the first session line; re-running
+      // is a no-op for the visual but acknowledged so it doesn't read as an
+      // error.
+      return "ok";
+    };
+
+    function run(raw) {
+      var trimmed = raw.replace(/\s+$/, "");
+      if (!trimmed) return null;
+      // Tolerate the no-space variants the user pointed out (ls-a, ls-la, ll).
+      var glued = trimmed.match(/^(ls|cat|cd|man|echo|uname)(-\S+)$/);
+      if (glued) trimmed = glued[1] + " " + glued[2];
+      var parts = trimmed.split(/\s+/);
+      var name = parts[0];
+      var args = parts.slice(1);
+      var fn = CMD[name];
+      if (!fn)
+        return {
+          err:
+            escHtml(name) +
+            ": command not found",
+        };
+      return fn(args);
+    }
+
     input.addEventListener("keydown", function (e) {
       if (e.key === "Enter") {
+        e.preventDefault();
+        var raw = input.value;
+        emit(promptHtml() + " " + escHtml(raw), "xp-tn-tcmd");
+        var res = run(raw);
+        if (res !== null && res !== undefined && res !== "") {
+          if (typeof res === "object" && res.err)
+            emit('<span class="xp-tn-terr">' + res.err + "</span>");
+          else emit(String(res));
+        }
+        if (raw.trim().length) {
+          hist.push(raw);
+          histIdx = hist.length;
+        }
         input.value = "";
-      } else if (e.key === "Escape") {
-        input.value = "";
+      } else if (e.key === "ArrowUp") {
+        if (!hist.length) return;
+        e.preventDefault();
+        histIdx = Math.max(0, histIdx - 1);
+        input.value = hist[histIdx] || "";
+        // Move caret to the end after the value swap.
+        var v = input.value;
+        input.setSelectionRange(v.length, v.length);
+      } else if (e.key === "ArrowDown") {
+        if (!hist.length) return;
+        e.preventDefault();
+        histIdx = Math.min(hist.length, histIdx + 1);
+        input.value = histIdx >= hist.length ? "" : hist[histIdx];
+        var v2 = input.value;
+        input.setSelectionRange(v2.length, v2.length);
       } else if (e.key === "l" && e.ctrlKey) {
         e.preventDefault();
+        out.innerHTML = "";
+      } else if (e.key === "u" && e.ctrlKey) {
+        e.preventDefault();
+        input.value = "";
+      } else if (e.key === "Escape") {
         input.value = "";
       }
     });
@@ -1687,7 +2104,7 @@
     term.addEventListener("click", function () {
       input.focus();
     });
-    // prefix-link clicks inside output (e.g. open-in-browser) shouldn't steal focus oddly
+    // links/buttons inside output should still work but shouldn't refocus
     out.addEventListener("click", function (e) {
       if (e.target.closest("a,button")) return;
       input.focus();
