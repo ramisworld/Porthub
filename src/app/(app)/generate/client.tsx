@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import Link from "next/link";
-
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
+import { useRouter } from "next/navigation";
 
 // Same regex as the server-side Zod check.
 const USERNAME_RE = /^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i;
@@ -115,6 +114,7 @@ function isStageId(s: string): s is StageId {
 // ───────────────────────────────────────────────────────────────────────────
 
 export function GenerateClient() {
+  const router = useRouter();
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const [username, setUsername] = useState("");
   const [vibe, setVibe] = useState("");
@@ -123,6 +123,16 @@ export function GenerateClient() {
   // Abort handle for in-flight requests when the user navigates away.
   const ctrlRef = useRef<AbortController | null>(null);
   useEffect(() => () => ctrlRef.current?.abort(), []);
+
+  // On stream completion: send the user to /dashboard. The dashboard renders
+  // the live portfolio in a preview iframe with Edit / Preview / Dashboard
+  // controls — they choose when to open the public subdomain.
+  useEffect(() => {
+    router.prefetch("/dashboard");
+  }, [router]);
+  const onDone = (_slug: string) => {
+    router.replace("/dashboard");
+  };
 
   // Fire the build pipeline. Pre-flight validates the GitHub username so we
   // don't even open the SSE stream on a typo.
@@ -189,7 +199,7 @@ export function GenerateClient() {
 
       // ── Pre-flight OK → open the build-log view and start SSE ───────────
       dispatch({ type: "START_STREAM" });
-      await streamGeneration(u, v, dispatch, ctrlRef);
+      await streamGeneration(u, v, dispatch, ctrlRef, onDone);
     } catch (err) {
       const message =
         err instanceof Error && err.name !== "AbortError"
@@ -238,6 +248,7 @@ async function streamGeneration(
   vibe: string,
   dispatch: React.Dispatch<Action>,
   ctrlRef: React.MutableRefObject<AbortController | null>,
+  onDone: (slug: string) => void,
 ) {
   ctrlRef.current?.abort();
   const ctrl = new AbortController();
@@ -254,7 +265,23 @@ async function streamGeneration(
   });
 
   if (!res.ok || !res.body) {
-    const data = (await res.json().catch(() => null)) as { error?: string } | null;
+    const data = (await res.json().catch(() => null)) as {
+      error?: string;
+      code?: string;
+    } | null;
+    if (res.status === 409 && data?.code === "quota_reached") {
+      window.location.reload();
+      return;
+    }
+    if (res.status === 409 && data?.code === "generation_in_progress") {
+      dispatch({
+        type: "FORM_ERROR",
+        error:
+          data.error ??
+          "A generation is already running for this account. Wait for it to finish.",
+      });
+      return;
+    }
     dispatch({
       type: "STREAM_ERROR",
       error: data?.error ?? `Request failed (${res.status}).`,
@@ -324,11 +351,12 @@ async function streamGeneration(
       if (ev.stage === "done" && ev.slug) {
         finished = true;
         dispatch({ type: "DONE", slug: ev.slug });
-        const target = `${window.location.protocol}//${ev.slug}.${ROOT_DOMAIN}`;
-        // Brief paint of the "redirecting" state before we leave.
-        window.setTimeout(() => {
-          window.location.href = target;
-        }, 300);
+        // Brief paint of the "done" state before we hand off to the dashboard.
+        // We route to /dashboard instead of the live subdomain so the user
+        // lands on a screen with Edit / Preview / Dashboard actions framing
+        // the rendered portfolio — they can choose when (and whether) to leave
+        // for the public site.
+        window.setTimeout(() => onDone(ev.slug!), 300);
         return;
       }
 
@@ -703,7 +731,7 @@ function BuildLog({
       )}
 
       {state.view === "done" && (
-        <p className="mt-5 text-[12px] text-white/45">Redirecting…</p>
+        <p className="mt-5 text-[12px] text-white/45">Opening your dashboard…</p>
       )}
     </div>
   );
