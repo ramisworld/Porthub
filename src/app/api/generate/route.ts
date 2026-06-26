@@ -5,6 +5,10 @@ import { getSession } from "~/server/auth";
 import { db } from "~/server/db";
 import { limit } from "~/server/ratelimit";
 import { checkBudget } from "~/server/llm/cost";
+import {
+  acquireGenerationLock,
+  releaseGenerationLock,
+} from "~/server/generation-lock";
 import { runGeneration } from "~/server/portfolio/generate";
 
 // Prisma / Octokit / Anthropic are Node-only — do NOT run on the Edge runtime.
@@ -106,6 +110,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const lock = await acquireGenerationLock(ownerId, username);
+  if (!lock.ok) {
+    return json({ error: lock.error, code: lock.code }, lock.status, {
+      ...(lock.retryAfter ? { "retry-after": String(lock.retryAfter) } : {}),
+    });
+  }
+
   // -----------------------------------------------------------------------
   // Why TransformStream instead of `new ReadableStream({ start })`:
   //
@@ -185,6 +196,7 @@ export async function POST(req: NextRequest) {
       const error = err instanceof Error ? err.message : "Generation failed.";
       await safeWrite(encoder.encode(sseFrame({ stage: "error", error })));
     } finally {
+      await releaseGenerationLock(ownerId);
       clearInterval(heartbeat);
       await safeClose();
     }
