@@ -89,4 +89,48 @@ export function logRunTotal(
   console.log(
     `[cost] ═══ RUN TOTAL ${meta.username} (${meta.slug}): in=${inTok} out=${outTok} → $${total.toFixed(4)} ═══`,
   );
+  recordSpend(total);
+}
+
+// ───────────────────────── daily spend budget ──────────────────────────────
+// In-process, resets at UTC midnight. Hard kill-switch: when DAILY_LLM_BUDGET_USD
+// is exceeded, /api/generate refuses new runs until the day rolls over. This
+// protects the bill from a runaway loop or an attacker who got past rate limits.
+
+let spendDay = utcDay();
+let spendUsd = 0;
+
+function utcDay() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function rollIfNewDay() {
+  const today = utcDay();
+  if (today !== spendDay) {
+    spendDay = today;
+    spendUsd = 0;
+  }
+}
+
+function recordSpend(usd: number) {
+  rollIfNewDay();
+  spendUsd += usd;
+}
+
+/** Returns `null` when there's headroom, or a reason string when the cap is reached. */
+export function checkBudget(): string | null {
+  rollIfNewDay();
+  const raw = process.env.DAILY_LLM_BUDGET_USD;
+  if (!raw) return null;
+  const cap = Number.parseFloat(raw);
+  if (!Number.isFinite(cap) || cap <= 0) return null;
+  if (spendUsd >= cap) {
+    return `Daily generation budget reached ($${spendUsd.toFixed(2)} / $${cap.toFixed(2)}). Try again tomorrow.`;
+  }
+  return null;
+}
+
+export function currentSpendUsd() {
+  rollIfNewDay();
+  return spendUsd;
 }

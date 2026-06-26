@@ -16,6 +16,16 @@ export const env = createEnv({
     GITHUB_TOKEN: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     MOCK_LLM: z.enum(["true", "false"]).default("true"),
+    // Hard daily cap (USD). When the day's accumulated spend reaches this,
+    // /api/generate returns 503 until UTC midnight. Leave unset to disable.
+    DAILY_LLM_BUDGET_USD: z.string().optional(),
+
+    // Anthropic model IDs. Defaults match the architecture doc but can be
+    // overridden per-environment (e.g. flip to a smaller model in dev / a
+    // newer snapshot in prod) without code changes. Pricing in
+    // src/server/llm/cost.ts must include any model you switch to.
+    ANTHROPIC_MODEL_FACTS: z.string().default("claude-haiku-4-5"),
+    ANTHROPIC_MODEL_DESIGN: z.string().default("claude-opus-4-8"),
 
     // ── BetterAuth ────────────────────────────────────────────────────────
     // 32+ char random string. Generate with: `openssl rand -base64 32`
@@ -60,6 +70,9 @@ export const env = createEnv({
     GITHUB_TOKEN: process.env.GITHUB_TOKEN,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     MOCK_LLM: process.env.MOCK_LLM,
+    DAILY_LLM_BUDGET_USD: process.env.DAILY_LLM_BUDGET_USD,
+    ANTHROPIC_MODEL_FACTS: process.env.ANTHROPIC_MODEL_FACTS,
+    ANTHROPIC_MODEL_DESIGN: process.env.ANTHROPIC_MODEL_DESIGN,
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
     BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
     GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,

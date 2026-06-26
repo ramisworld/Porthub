@@ -2,9 +2,14 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { env } from "~/env";
 
+/**
+ * Model IDs are env-controlled so we can switch snapshots per environment
+ * (dev → cheap/fast, prod → quality) without a code change. Defaults are
+ * defined in src/env.js.
+ */
 export const MODELS = {
-  facts: "claude-haiku-4-5",
-  design: "claude-opus-4-8",
+  facts: env.ANTHROPIC_MODEL_FACTS,
+  design: env.ANTHROPIC_MODEL_DESIGN,
 } as const;
 
 export const isMock = env.MOCK_LLM !== "false";
