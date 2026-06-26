@@ -4129,6 +4129,14 @@ body:has(.xp-ghost) {
   position: absolute;
   left: 50%;
   bottom: 32px;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+.xp-tn-scrollcue.xp-tn-scrollcue-hide {
+  opacity: 0 !important;
+  transform: translateX(-50%) translateY(14px);
+  pointer-events: none;
+}
+.xp-tn-scrollcue {
   transform: translateX(-50%);
   z-index: 6;
   display: inline-flex;

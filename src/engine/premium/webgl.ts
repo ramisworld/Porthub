@@ -42,6 +42,14 @@ export function initWebGL(
   const contained = !!container;
   const host = container ?? document.body;
 
+  // Perf tier — set globally by premium/index.ts. Scales DPR, FPS target,
+  // postfx strength, and antialias to keep heat down on weaker hardware.
+  const tier = window.__PHP_TIER ?? "high";
+  const dprCap = tier === "high" ? 1.5 : tier === "medium" ? 1.25 : 1.0;
+  const fpsTarget = tier === "high" ? 40 : tier === "medium" ? 30 : 24;
+  const postfxScale = tier === "high" ? 1 : tier === "medium" ? 0.6 : 0;
+  const aaEnabled = tier === "high" && contained;
+
   const canvas = document.createElement("canvas");
   canvas.id = "ph-webgl";
   canvas.style.cssText = contained
@@ -74,18 +82,19 @@ export function initWebGL(
   const renderer = new THREE.WebGLRenderer({
     canvas,
     // Bloom softens edges, so MSAA on the fullbleed scene is wasted GPU.
-    antialias: contained,
+    // On medium/low tier we disable MSAA entirely as a thermal win.
+    antialias: aaEnabled,
     // ALWAYS alpha — even fullbleed — so the static void layer (stars +
     // atmospheric glows) shows through behind the hero object instead of
     // being covered by an opaque clear color.
     alpha: true,
-    powerPreference: "high-performance",
+    powerPreference: tier === "high" ? "high-performance" : "default",
   });
-  // Cap DPR hard — a fullbleed bloom scene at 2× retina is 4× the fragments for
-  // no visible gain. 1.5 keeps it crisp while cutting GPU/heat dramatically.
-  renderer.setPixelRatio(
-    Math.min(contained ? 2 : 1.5, window.devicePixelRatio || 1),
-  );
+  // DPR cap is per-tier (see top of function). The most expensive thing a
+  // bloom scene can do on a retina laptop is render 4× the fragments for no
+  // visible gain — capping at 1.5 (high) / 1.25 (medium) / 1.0 (low) is the
+  // single biggest heat win.
+  renderer.setPixelRatio(Math.min(dprCap, window.devicePixelRatio || 1));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   const ghostObject = spec.webgl.scene === "ghostObject";
   // Slightly hotter exposure on the ghost so the filaments read on near-black
@@ -115,11 +124,13 @@ export function initWebGL(
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  // Slightly stronger bloom on the ghost — enough to give the filaments a
-  // proper phosphor glow without washing the whole hero in fog.
-  const baseBloom = spec.postfx.bloom * (ghostObject ? 0.62 : 1.32);
+  // Bloom strength × postfxScale lets us turn the glow down on medium tier
+  // and off entirely on low. The ghost coefficient stays so high tier feels
+  // identical to before.
+  const baseBloom =
+    spec.postfx.bloom * (ghostObject ? 0.62 : 1.32) * postfxScale;
   let bloom: UnrealBloomPass | null = null;
-  if (spec.postfx.bloom > 0.01) {
+  if (spec.postfx.bloom > 0.01 && postfxScale > 0) {
     bloom = new UnrealBloomPass(
       new THREE.Vector2(w, h),
       baseBloom,
@@ -128,10 +139,10 @@ export function initWebGL(
     );
     composer.addPass(bloom);
   }
-  if (spec.postfx.chromatic > 0.01) {
+  if (spec.postfx.chromatic > 0.01 && postfxScale > 0) {
     const rgb = new ShaderPass(RGBShiftShader);
     (rgb.uniforms.amount as { value: number }).value =
-      spec.postfx.chromatic * 0.0026;
+      spec.postfx.chromatic * 0.0026 * postfxScale;
     composer.addPass(rgb);
   }
   composer.addPass(new OutputPass());
@@ -167,11 +178,12 @@ export function initWebGL(
   let mode: SceneMode = "calm";
 
   // ---- thermal governor ----
-  // 1) frame-cap to ~40fps (don't render every 120Hz tick).
+  // 1) frame-cap by tier (40fps high / 30 medium / 24 low — though low never
+  //    reaches here because index.ts skips initWebGL on tier === "low").
   // 2) pause entirely when the tab is hidden.
   // 3) fade + pause once the hero is scrolled away — the static void shows through
   //    and the GPU goes idle while the visitor reads (the big heat win).
-  const TARGET_DT = 1 / 40;
+  const TARGET_DT = 1 / fpsTarget;
   let acc = 0;
   let visible = !document.hidden;
   document.addEventListener("visibilitychange", () => {

@@ -113,9 +113,14 @@ export function createGhostObject(opts: SceneOpts): SceneHandle {
   // Pale green-white for bright cores — derived from the signal green.
   const lite = green.clone().lerp(new THREE.Color(0.95, 1.0, 0.95), 0.7);
 
-  // Seed ~13k points in a HOLLOW rounded shell (center stays dark), gently
+  // Seed points in a HOLLOW rounded shell (center stays dark), gently
   // stretched. The flow field warps the shell into a coiling silhouette.
-  const N = 13200;
+  // Particle count scales with the perf tier: 13.2k on high, 7k on medium,
+  // and a defensive floor for any other case. (Low tier never instantiates
+  // this scene at all — see premium/index.ts.)
+  const tier =
+    typeof window !== "undefined" ? (window.__PHP_TIER ?? "high") : "high";
+  const N = tier === "high" ? 13200 : tier === "medium" ? 7000 : 4000;
   const pos = new Float32Array(N * 3);
   const rnd = new Float32Array(N);
   for (let i = 0; i < N; i++) {
@@ -162,8 +167,8 @@ export function createGhostObject(opts: SceneOpts): SceneHandle {
   obj.rotation.z = -0.35; // tilt → the diamond lean
 
   // Background starfield — kept (it sells the depth behind the object). Dim
-  // specks, no bloom contribution.
-  const STAR_N = 820;
+  // specks, no bloom contribution. Halved on medium for the same heat budget.
+  const STAR_N = tier === "high" ? 820 : 400;
   const starPos = new Float32Array(STAR_N * 3);
   const starCol = new Float32Array(STAR_N * 3);
   const starWhite = new THREE.Color(0xe7eee8);

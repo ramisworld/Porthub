@@ -4,7 +4,7 @@ import { mountVoid } from "./void";
 import { initWebGL, type WebGLHandle } from "./webgl";
 import { initReveals } from "./scroll";
 import {
-  lowPowerDevice,
+  perfTier,
   prefersReducedMotion,
   webglSupported,
 } from "./support";
@@ -19,17 +19,27 @@ import {
   window.__PHP = true;
   document.body.classList.add("php-premium");
 
+  // Adaptive perf: classify the device once and tag the page so CSS/JS modules
+  // can scale themselves. See src/engine/premium/support.ts for the bands.
+  const tier = perfTier();
+  window.__PHP_TIER = tier;
+  document.body.setAttribute("data-tier", tier);
+
   const reduce = prefersReducedMotion();
   const boot = mountBoot(spec, data, { reduce });
 
   initCursor(spec);
 
-  if (spec.postfx.scanlines && !reduce) {
+  // Scanlines: full on high, dimmed on medium, off entirely on low (they're
+  // the cheapest perceived heat for the least visual payoff at small sizes).
+  if (spec.postfx.scanlines && !reduce && tier !== "low") {
     const sl = document.createElement("div");
     sl.id = "ph-scanlines";
+    const opacity = tier === "high" ? 0.22 : 0.12;
     sl.style.cssText =
-      "position:fixed;inset:0;z-index:998;pointer-events:none;opacity:.22;" +
-      "background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,.18) 3px,rgba(0,0,0,0) 4px)";
+      "position:fixed;inset:0;z-index:998;pointer-events:none;opacity:" +
+      opacity +
+      ";background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,.18) 3px,rgba(0,0,0,0) 4px)";
     document.body.appendChild(sl);
   }
 
@@ -37,13 +47,13 @@ import {
   // CSS atmosphere + canvas star projection. The WebGL hero composites over it.
   mountVoid();
 
-  // Run the heavy WebGL scene (object on top of the void) only on capable,
-  // non-touch, motion-OK devices. Everything else just keeps the void.
+  // WebGL hero scene: high + medium, never on low. The void layer behind is
+  // always on and is enough on its own.
   const useWebGL =
     spec.webgl.scene !== "off" &&
     webglSupported() &&
     !reduce &&
-    !lowPowerDevice();
+    tier !== "low";
 
   // The base engine calls this once it has built the DOM into #ph-app.
   let ran = false;

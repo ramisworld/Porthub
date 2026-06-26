@@ -19,6 +19,7 @@ declare global {
     __PHP?: boolean; // premium layer present
     __PHP_FALLBACK_BG?: boolean; // premium asked the base engine to run its 2D background
     __PHP_domReady?: () => void; // base engine calls this once the DOM is built
+    __PHP_TIER?: "high" | "medium" | "low"; // perf tier set early by index.ts
   }
 }
 

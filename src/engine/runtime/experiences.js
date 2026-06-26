@@ -437,7 +437,6 @@
       tnKv("focus", tnFocus(data)) +
       tnKv("stack", stackStr) +
       tnKv("email", email(data)) +
-      tnKv("site", host || l.site) +
       tnKv("github", gh ? "@" + gh : "") +
       "</div>";
     var term =
@@ -1549,9 +1548,17 @@
 
     // scroll-progress hairline under the HUD
     var pbar = document.querySelector(".xp-tn-progress > i");
-    if (pbar && window.PH && typeof window.PH.onScroll === "function") {
+    var scue = document.querySelector(".xp-tn-scrollcue");
+    if (window.PH && typeof window.PH.onScroll === "function") {
       window.PH.onScroll(function (s) {
-        pbar.style.transform = "scaleX(" + s.progress.toFixed(3) + ")";
+        if (pbar) pbar.style.transform = "scaleX(" + s.progress.toFixed(3) + ")";
+        // Fade the scroll cue out as soon as the visitor starts moving so it
+        // doesn't sit on top of the next section. 60px is "intent to scroll",
+        // not a full section's worth — feels responsive.
+        if (scue) {
+          if (s.y > 60) scue.classList.add("xp-tn-scrollcue-hide");
+          else scue.classList.remove("xp-tn-scrollcue-hide");
+        }
       });
     }
 
@@ -1715,7 +1722,6 @@
       "\nemail:  " +
       email(data) +
       (links(data).github ? "\ngithub: " + links(data).github : "") +
-      (links(data).site ? "\nsite:   " + links(data).site : "") +
       "\n";
     var skillsTxt = langs.length ? langs.join("\n") + "\n" : "(none)\n";
     var projectsJson = JSON.stringify(
