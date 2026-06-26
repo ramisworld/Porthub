@@ -7,6 +7,7 @@ import { nextCookies } from "better-auth/next-js";
 import { Resend } from "resend";
 import { env } from "~/env";
 import { db } from "~/server/db";
+import { limit } from "~/server/ratelimit";
 
 /**
  * BetterAuth — single source of truth for sessions.
@@ -102,6 +103,16 @@ export const auth = betterAuth({
     magicLink({
       expiresIn: 60 * 10, // 10 minutes
       sendMagicLink: async ({ email, url }) => {
+        // Cap to 5 sends per email / hour to prevent inbox spam + Resend abuse.
+        const rl = limit(`magic:${email.toLowerCase()}`, {
+          window: "1h",
+          max: 5,
+        });
+        if (!rl.ok) {
+          throw new Error(
+            "Too many sign-in emails. Try again in a few minutes.",
+          );
+        }
         await sendMagicLinkEmail(email, url);
       },
     }),
