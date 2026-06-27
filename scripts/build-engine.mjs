@@ -31,7 +31,7 @@ const runtimeJs = RUNTIME_ORDER.map((f) =>
 ).join("\n;\n");
 
 // Bundle the shared issuer registry through esbuild so both the engine
-// runtime and the React editor consume identical SVG assets.
+// runtime and the React editor consume identical local logo metadata.
 const issuersBuild = await build({
   entryPoints: [join(runtimeDir, "issuers.entry.ts")],
   bundle: true,
@@ -61,10 +61,7 @@ const premiumJs = result.outputFiles[0].text;
 const jsPath = join(outDir, `${ENGINE_VERSION}.js`);
 const cssPath = join(outDir, `${ENGINE_VERSION}.css`);
 // Issuers must be registered on window.PH before experiences.js renders.
-writeFileSync(
-  jsPath,
-  issuersJs + "\n;\n" + runtimeJs + "\n;\n" + premiumJs,
-);
+writeFileSync(jsPath, issuersJs + "\n;\n" + runtimeJs + "\n;\n" + premiumJs);
 writeFileSync(cssPath, readFileSync(join(runtimeDir, "base.css"), "utf8"));
 
 const kb = (p) => Math.round(readFileSync(p).length / 1024);
