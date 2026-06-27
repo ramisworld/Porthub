@@ -4,10 +4,15 @@ import type { Metadata } from "next";
 import { db } from "~/server/db";
 import { getSession } from "~/server/auth";
 import { buildPortfolioIframe } from "~/server/portfolio/render-iframe";
+import { buildPortfolioMetadata } from "~/server/portfolio/metadata";
 
-// Always read the latest data + re-render via the engine (engine upgrades apply
-// to all existing portfolios).
 export const dynamic = "force-dynamic";
+
+function canonicalFromHeaders(h: Headers): string {
+  const host = h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  return `${proto}://${host}`;
+}
 
 export async function generateMetadata({
   params,
@@ -17,15 +22,16 @@ export async function generateMetadata({
   const { slug } = await params;
   const p = await db.portfolio.findUnique({
     where: { slug },
-    select: { isPublic: true, githubUsername: true },
+    select: { isPublic: true, githubUsername: true, profileData: true },
   });
   if (!p) return {};
-  return {
-    title: `${p.githubUsername} — PortHub`,
-    // Private portfolios should not be indexed. The link still works for
-    // anyone who has it — it just won't show up in search.
-    robots: p.isPublic ? undefined : { index: false, follow: false },
-  };
+  const h = await headers();
+  return buildPortfolioMetadata({
+    profileData: p.profileData,
+    githubUsername: p.githubUsername,
+    isPublic: p.isPublic,
+    canonicalUrl: canonicalFromHeaders(h),
+  });
 }
 
 export default async function SitePage({
@@ -38,7 +44,6 @@ export default async function SitePage({
   const portfolio = await db.portfolio.findUnique({ where: { slug } });
   if (!portfolio) notFound();
 
-  // Private gating: when isPublic=false the page only renders for the owner.
   if (!portfolio.isPublic) {
     const session = await getSession(await headers());
     if (session?.user?.id !== portfolio.ownerId) {
