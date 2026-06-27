@@ -4129,7 +4129,9 @@ body:has(.xp-ghost) {
   position: absolute;
   left: 50%;
   bottom: 32px;
-  transition: opacity 0.45s ease, transform 0.45s ease;
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
 }
 .xp-tn-scrollcue.xp-tn-scrollcue-hide {
   opacity: 0 !important;
@@ -4609,7 +4611,10 @@ body:has(.xp-ghost) {
   border: 1px solid color-mix(in srgb, var(--ph-issuer) 22%, transparent);
   border-radius: 4px;
   opacity: 0.6;
-  transition: opacity 0.3s, background 0.3s, border-color 0.3s;
+  transition:
+    opacity 0.3s,
+    background 0.3s,
+    border-color 0.3s;
   white-space: nowrap;
   user-select: none;
 }
@@ -4636,30 +4641,34 @@ body:has(.xp-ghost) {
     transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.3s;
 }
-.xp-tn-cred-logo svg {
+.xp-tn-cred-logo[data-tile="light"] {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(255, 255, 255, 0.68);
+}
+.xp-tn-cred-logo img {
+  display: block;
   width: 30px;
   height: 30px;
-  display: block;
+  object-fit: contain;
+}
+.xp-tn-cred-logo[data-mark="wide"] img {
+  width: 36px;
+  height: 26px;
+}
+.xp-tn-cred-logo[data-mark="tall"] img {
+  width: 26px;
+  height: 36px;
+}
+.xp-tn-cred-logo[data-kind="generic"] img {
+  width: 28px;
+  height: 28px;
+  opacity: 0.88;
 }
 .xp-tn-cred:hover .xp-tn-cred-logo {
   transform: scale(1.04);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
     0 0 24px -10px var(--ph-issuer);
-}
-.xp-tn-cred-logo-fb {
-  background: linear-gradient(
-    160deg,
-    color-mix(in srgb, var(--ph-issuer) 60%, #0a0a0a),
-    color-mix(in srgb, var(--ph-issuer) 32%, #050505)
-  );
-  color: #fff;
-}
-.xp-tn-cred-initials {
-  font-family: var(--gmono);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
 }
 
 .xp-tn-cred-meta {
@@ -4690,16 +4699,6 @@ body:has(.xp-ghost) {
   letter-spacing: 0.005em;
   color: #c5cfca;
 }
-.xp-tn-cred-date {
-  margin: 2px 0 0;
-  font-family: var(--gmono);
-  font-size: 8.5px;
-  letter-spacing: 0.04em;
-  line-height: 1.25;
-  text-transform: uppercase;
-  color: var(--dim);
-}
-
 /* ---- credential id row ---- */
 .xp-tn-cred-credid {
   display: flex;
@@ -4744,7 +4743,10 @@ body:has(.xp-ghost) {
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.045);
   border-radius: 999px;
-  transition: color 0.2s, border-color 0.2s, background 0.2s;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s;
 }
 .xp-tn-cred:hover .xp-tn-cred-skill {
   color: #dfe6e3;
@@ -4778,11 +4780,17 @@ body:has(.xp-ghost) {
   font-style: normal;
   font-size: 13px;
   opacity: 0.75;
-  transition: transform 0.25s, opacity 0.25s;
+  transition:
+    transform 0.25s,
+    opacity 0.25s;
 }
 .xp-tn-cred-verify:hover {
   color: #fff;
-  background: color-mix(in srgb, var(--ph-issuer) 14%, rgba(255, 255, 255, 0.03));
+  background: color-mix(
+    in srgb,
+    var(--ph-issuer) 14%,
+    rgba(255, 255, 255, 0.03)
+  );
   border-color: color-mix(in srgb, var(--ph-issuer) 36%, transparent);
 }
 .xp-tn-cred-verify:hover i {
