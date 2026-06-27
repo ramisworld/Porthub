@@ -11,11 +11,12 @@ name = "porthub-domain-router"
 main = "src/index.js"
 compatibility_date = "2026-06-01"
 
-# The route is bound to the fallback-origin hostname (a dummy proxied DNS
-# record). Custom-hostname traffic routed to the fallback origin runs through
-# this Worker. Scoped narrowly so it never intercepts the app's own hosts.
+# Catch-all route: captures every host entering the zone, including external
+# custom hostnames (john.com). The app's own hosts (rami.co.nz + *.rami.co.nz)
+# are excluded via separate "no worker" routes added through the Cloudflare API.
+workers_dev = false
 routes = [
-  { pattern = "proxy-fallback.rami.co.nz/*", zone_name = "rami.co.nz" }
+  { pattern = "*/*", zone_name = "rami.co.nz" }
 ]
 
 [vars]
