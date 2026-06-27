@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ZodIssue } from "zod";
 import {
   profileDataSchema,
   type Ability,
@@ -9,7 +11,12 @@ import {
   type Project,
   type Stat,
 } from "~/server/profile/model";
-import { ISSUERS, ISSUER_BY_KEY } from "~/lib/issuers";
+import {
+  ISSUERS,
+  ISSUER_BY_KEY,
+  resolveCredentialIssuerKey,
+  type IssuerMeta,
+} from "~/lib/issuers";
 import { api } from "~/trpc/react";
 
 /**
@@ -19,8 +26,7 @@ import { api } from "~/trpc/react";
  *   ● Scrollable form on the right
  *   ● Sticky footer: status + Save
  *   ● Closing with unsaved changes prompts: Save · Discard · Cancel
- *   ● Saving keeps the modal open (and refreshes the preview behind it);
- *     only the ✕ in the header closes it.
+ *   ● Saving closes the modal and refreshes the preview behind it.
  *
  * `githubUsername` is read-only during beta — changing it would invalidate
  * the LLM-curated facts without a re-scrape, which the beta cap forbids.
@@ -54,7 +60,8 @@ export function EditModal({
   );
 
   const update = api.portfolio.updateProfileData.useMutation({
-    onError: (e) => setError(e.message),
+    onError: () =>
+      setError("That did not save. Please check your connection and try again."),
   });
 
   // Centralized "save succeeded" handler. Takes the validated ProfileData
@@ -67,16 +74,23 @@ export function EditModal({
     savedTimer.current = window.setTimeout(() => setSaved(false), 2400);
     setConfirmClose(false);
     onSaved(next);
+    onClose();
   };
 
   const save = (): void => {
     setError(null);
 
-    // Coerce optional blanks → undefined, then validate.
+    // Coerce optional blanks and common URL shorthand before validating.
     const blankToUndef = (s: string | null | undefined): string | undefined => {
       const t = s?.trim();
       if (!t) return undefined;
       return t;
+    };
+    const optionalUrl = (s: string | null | undefined): string | undefined => {
+      const t = blankToUndef(s);
+      if (!t) return undefined;
+      if (/^[a-z][a-z0-9+.-]*:\/\//i.test(t)) return t;
+      return `https://${t}`;
     };
 
     const payload: ProfileData = {
@@ -88,34 +102,41 @@ export function EditModal({
           ...data.identity.links,
           // GitHub link is derived from the (locked) username on save.
           github: `https://github.com/${githubUsername}`,
-          site: blankToUndef(data.identity.links.site),
-          x: blankToUndef(data.identity.links.x),
+          site: optionalUrl(data.identity.links.site),
+          x: optionalUrl(data.identity.links.x),
+          linkedin: optionalUrl(data.identity.links.linkedin),
           email: blankToUndef(data.identity.links.email),
         },
       },
       projects: data.projects.map((p) => ({
         ...p,
-        demoUrl: blankToUndef(p.demoUrl),
+        tech: p.tech.map((t) => t.trim()).filter(Boolean),
+        demoUrl: optionalUrl(p.demoUrl),
+        repoUrl: optionalUrl(p.repoUrl) ?? "",
       })),
-      credentials: (data.credentials ?? []).map((c) => ({
-        ...c,
-        issuerKey: blankToUndef(c.issuerKey),
-        issuedAt: blankToUndef(c.issuedAt),
-        expiresAt: blankToUndef(c.expiresAt),
-        credentialId: blankToUndef(c.credentialId),
-        url: blankToUndef(c.url),
-        skills: c.skills?.length
-          ? c.skills.map((s) => s.trim()).filter(Boolean)
-          : undefined,
-      })),
+      credentials: (data.credentials ?? []).map((c) => {
+        const issuerKey = blankToUndef(c.issuerKey);
+        const resolvedIssuerKey = resolveCredentialIssuerKey({
+          issuerKey,
+          issuer: c.issuer,
+        });
+
+        return {
+          ...c,
+          issuerKey: resolvedIssuerKey,
+          credentialId: blankToUndef(c.credentialId),
+          url: optionalUrl(c.url),
+          skills: c.skills?.length
+            ? c.skills.map((s) => s.trim()).filter(Boolean)
+            : undefined,
+        };
+      }),
     };
 
     const parsed = profileDataSchema.safeParse(payload);
     if (!parsed.success) {
       const first = parsed.error.issues[0];
-      const path = first?.path.join(".");
-      const where = path && path.length > 0 ? path : "form";
-      setError(`Couldn't save (${where}): ${first?.message ?? "invalid"}`);
+      setError(friendlyValidationMessage(first));
       return;
     }
 
@@ -204,9 +225,7 @@ export function EditModal({
           </div>
           <div className="flex items-center gap-2">
             {dirty && !confirmClose && (
-              <span className="text-[11px] text-amber-300/80">
-                ● Unsaved
-              </span>
+              <span className="text-[11px] text-amber-300/80">● Unsaved</span>
             )}
             <button
               type="button"
@@ -279,8 +298,13 @@ export function EditModal({
         <footer className="relative flex flex-none items-center justify-between gap-3 border-t border-white/[0.06] bg-black/20 px-5 py-3 backdrop-blur-xl">
           {confirmClose ? (
             <>
-              <p className="text-[12.5px] text-amber-200/85">
-                Save your changes before closing?
+              <p
+                role={error ? "alert" : undefined}
+                className={`text-[12.5px] ${
+                  error ? "text-red-300/90" : "text-amber-200/85"
+                }`}
+              >
+                {error ?? "Save your changes before closing?"}
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -315,7 +339,7 @@ export function EditModal({
                       Saving
                     </>
                   ) : (
-                    "Save & close"
+                    "Save and close"
                   )}
                 </button>
               </div>
@@ -332,9 +356,7 @@ export function EditModal({
                     Saved · your live site is updated.
                   </span>
                 ) : dirty ? (
-                  <span className="text-white/55">
-                    Changes ready to save.
-                  </span>
+                  <span className="text-white/55">Changes ready to save.</span>
                 ) : (
                   <span className="text-white/35">
                     Tweak anything — saves are instant, no regeneration.
@@ -362,7 +384,7 @@ export function EditModal({
                       Saving
                     </>
                   ) : (
-                    "Save changes"
+                    "Save"
                   )}
                 </button>
               </div>
@@ -378,12 +400,7 @@ export function EditModal({
 // Tabs
 // ───────────────────────────────────────────────────────────────────────────
 
-type TabId =
-  | "identity"
-  | "abilities"
-  | "stats"
-  | "projects"
-  | "credentials";
+type TabId = "identity" | "abilities" | "stats" | "projects" | "credentials";
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "identity", label: "Identity" },
   { id: "abilities", label: "Abilities" },
@@ -406,10 +423,7 @@ function IdentitySection({
   githubUsername: string;
 }) {
   return (
-    <SectionShell
-      title="Identity"
-      subtitle="How you read across the site"
-    >
+    <SectionShell title="Identity" subtitle="How you read across the site">
       <Row>
         <Field label="Name">
           <TextInput
@@ -446,11 +460,12 @@ function IdentitySection({
             placeholder="Auckland, NZ"
           />
         </Field>
-        <Field
-          label="GitHub username"
-          hint="Locked during beta"
-        >
-          <TextInput value={githubUsername} onChange={() => undefined} disabled />
+        <Field label="GitHub username" hint="Locked during beta">
+          <TextInput
+            value={githubUsername}
+            onChange={() => undefined}
+            disabled
+          />
         </Field>
       </Row>
 
@@ -477,16 +492,28 @@ function IdentitySection({
         </Field>
       </Row>
 
-      <Field label="X / Twitter URL">
-        <TextInput
-          value={data.links.x ?? ""}
-          onChange={(v) =>
-            onChange({ ...data, links: { ...data.links, x: v } })
-          }
-          inputType="url"
-          placeholder="https://x.com/you"
-        />
-      </Field>
+      <Row>
+        <Field label="X / Twitter URL">
+          <TextInput
+            value={data.links.x ?? ""}
+            onChange={(v) =>
+              onChange({ ...data, links: { ...data.links, x: v } })
+            }
+            inputType="url"
+            placeholder="https://x.com/you"
+          />
+        </Field>
+        <Field label="LinkedIn URL">
+          <TextInput
+            value={data.links.linkedin ?? ""}
+            onChange={(v) =>
+              onChange({ ...data, links: { ...data.links, linkedin: v } })
+            }
+            inputType="url"
+            placeholder="https://linkedin.com/in/you"
+          />
+        </Field>
+      </Row>
     </SectionShell>
   );
 }
@@ -668,14 +695,9 @@ function ProjectsSection({
 
             <Row>
               <Field label="Tech" hint="Comma separated">
-                <TextInput
-                  value={p.tech.join(", ")}
-                  onChange={(v) => {
-                    const tech = v
-                      .split(",")
-                      .map((t) => t.trim())
-                      .filter(Boolean)
-                      .slice(0, 12);
+                <CommaListInput
+                  value={p.tech}
+                  onChange={(tech) => {
                     const next = [...items];
                     next[i] = { ...p, tech };
                     onChange(next);
@@ -733,12 +755,12 @@ function CredentialsSection({
       {items.length === 0 && (
         <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-center">
           <p className="text-[13px] text-white/65">
-            No credentials yet. Add one to display it in a dedicated section
-            on your portfolio.
+            No credentials yet. Add one to display it in a dedicated section on
+            your portfolio.
           </p>
           <p className="mt-1 text-[11.5px] text-white/40">
-            Choose a known issuer to get its logo, or pick{" "}
-            <em>Other</em> to enter a custom name.
+            Choose a known issuer to get its logo, or pick <em>Other</em> to
+            enter a custom name.
           </p>
         </div>
       )}
@@ -769,8 +791,6 @@ function CredentialsSection({
               title: "",
               issuer: "",
               issuerKey: undefined,
-              issuedAt: undefined,
-              expiresAt: undefined,
               credentialId: undefined,
               url: undefined,
               skills: undefined,
@@ -792,7 +812,14 @@ function CredentialsSection({
 type IssuerMode = "unset" | "known" | "other";
 
 function deriveIssuerMode(value: Credential): IssuerMode {
-  if (value.issuerKey && ISSUER_BY_KEY[value.issuerKey]) return "known";
+  if (
+    resolveCredentialIssuerKey({
+      issuerKey: value.issuerKey,
+      issuer: value.issuer,
+    })
+  ) {
+    return "known";
+  }
   if (value.issuer && value.issuer.trim().length > 0) return "other";
   return "unset";
 }
@@ -812,7 +839,6 @@ function CredentialCardEditor({
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
 }) {
-  const [noExpiry, setNoExpiry] = useState<boolean>(() => !value.expiresAt);
   const [skillsInput, setSkillsInput] = useState<string>(() =>
     (value.skills ?? []).join(", "),
   );
@@ -826,7 +852,6 @@ function CredentialCardEditor({
   // local state in sync — but don't clobber a sticky "other" mode if the
   // user picked it before typing.
   useEffect(() => {
-    setNoExpiry(!value.expiresAt);
     setSkillsInput((value.skills ?? []).join(", "));
     setMode((current) => {
       const derived = deriveIssuerMode(value);
@@ -837,14 +862,18 @@ function CredentialCardEditor({
     });
   }, [value]);
 
-  const meta = value.issuerKey ? ISSUER_BY_KEY[value.issuerKey] : undefined;
+  const resolvedIssuerKey = resolveCredentialIssuerKey({
+    issuerKey: value.issuerKey,
+    issuer: value.issuer,
+  });
+  const meta = resolvedIssuerKey ? ISSUER_BY_KEY[resolvedIssuerKey] : undefined;
 
   return (
     <li className="space-y-3 rounded-xl bg-black/20 p-3 ring-1 ring-white/[0.04]">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {meta ? (
-            <IssuerLogo svg={meta.svg} size={16} />
+            <IssuerLogo issuer={meta} size={16} />
           ) : (
             <span
               aria-hidden
@@ -903,42 +932,6 @@ function CredentialCardEditor({
       </Field>
 
       <Row>
-        <Field label="Issued">
-          <MonthInput
-            value={value.issuedAt ?? ""}
-            onChange={(v) => onChange({ ...value, issuedAt: v })}
-            max={isoYearMonthNow()}
-          />
-        </Field>
-        <Field
-          label="Expires"
-          hint={
-            <span className="inline-flex items-center gap-1.5">
-              <input
-                type="checkbox"
-                checked={noExpiry}
-                onChange={(e) => {
-                  setNoExpiry(e.target.checked);
-                  if (e.target.checked) {
-                    onChange({ ...value, expiresAt: undefined });
-                  }
-                }}
-                className="h-3 w-3 accent-white"
-              />
-              <span>No expiry</span>
-            </span>
-          }
-        >
-          <MonthInput
-            value={value.expiresAt ?? ""}
-            onChange={(v) => onChange({ ...value, expiresAt: v })}
-            disabled={noExpiry}
-            min={value.issuedAt}
-          />
-        </Field>
-      </Row>
-
-      <Row>
         <Field label="Credential ID" hint="Optional">
           <TextInput
             value={value.credentialId ?? ""}
@@ -979,15 +972,38 @@ function CredentialCardEditor({
   );
 }
 
-/** Renders an issuer's icon-only SVG safely from the registry. */
-function IssuerLogo({ svg, size = 18 }: { svg: string; size?: number }) {
+/** Renders a local issuer logo asset from the credential logo manifest. */
+function IssuerLogo({
+  issuer,
+  size = 18,
+}: {
+  issuer: IssuerMeta;
+  size?: number;
+}) {
+  const imageSize =
+    issuer.mark === "wide"
+      ? { width: Math.round(size * 0.95), height: Math.round(size * 0.62) }
+      : issuer.mark === "tall"
+        ? { width: Math.round(size * 0.62), height: Math.round(size * 0.95) }
+        : { width: Math.round(size * 0.74), height: Math.round(size * 0.74) };
+
   return (
     <span
       aria-hidden
-      className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-white/[0.04] ring-1 ring-white/[0.06]"
+      data-logo-kind={issuer.logoKind}
+      data-tile={issuer.tile}
+      className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-white/[0.04] ring-1 ring-white/[0.06] data-[tile=light]:bg-white data-[tile=light]:ring-white/60"
       style={{ width: size, height: size }}
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+    >
+      <Image
+        src={issuer.src}
+        alt=""
+        width={imageSize.width}
+        height={imageSize.height}
+        unoptimized
+        className="object-contain"
+      />
+    </span>
   );
 }
 
@@ -995,7 +1011,7 @@ function IssuerLogo({ svg, size = 18 }: { svg: string; size?: number }) {
  * IssuerCombobox — searchable dropdown of known issuers.
  *
  * • Default state shows "Choose issuer…" — no implicit "Other" selection.
- * • Each row renders the issuer's real icon-only logo (no color swatch).
+ * • Each row renders the issuer's local logo asset or explicit generic fallback.
  * • A divider + "Other (custom issuer)" row at the bottom switches the
  *   parent into freeform-text mode; the text input is rendered by the
  *   caller right below this control.
@@ -1020,7 +1036,8 @@ function IssuerCombobox({
   const [query, setQuery] = useState("");
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
-  const selected = selectedKey ? ISSUER_BY_KEY[selectedKey] : undefined;
+  const selectedSlug = resolveCredentialIssuerKey({ issuerKey: selectedKey });
+  const selected = selectedSlug ? ISSUER_BY_KEY[selectedSlug] : undefined;
 
   // Display logic for the trigger.
   let triggerLabel: string;
@@ -1028,7 +1045,7 @@ function IssuerCombobox({
   let labelTone = "text-white/85";
   if (mode === "known" && selected) {
     triggerLabel = selected.label;
-    triggerLogo = <IssuerLogo svg={selected.svg} size={18} />;
+    triggerLogo = <IssuerLogo issuer={selected} size={18} />;
   } else if (mode === "other") {
     triggerLabel = freeformText.trim() || "Other…";
     triggerLogo = (
@@ -1045,7 +1062,7 @@ function IssuerCombobox({
     triggerLogo = (
       <span
         aria-hidden
-        className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] bg-white/[0.03] ring-1 ring-white/[0.05] text-[10px] text-white/30"
+        className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] bg-white/[0.03] text-[10px] text-white/30 ring-1 ring-white/[0.05]"
       >
         ?
       </span>
@@ -1088,7 +1105,7 @@ function IssuerCombobox({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-9 w-full items-center gap-2 rounded-lg border border-white/10 bg-black/30 px-2.5 text-left text-[13.5px] outline-none transition hover:border-white/15 focus:border-indigo-400/40"
+        className="flex h-9 w-full items-center gap-2 rounded-lg border border-white/10 bg-black/30 px-2.5 text-left text-[13.5px] transition outline-none hover:border-white/15 focus:border-indigo-400/40"
       >
         {triggerLogo}
         <span className={`min-w-0 flex-1 truncate ${labelTone}`}>
@@ -1156,13 +1173,15 @@ function IssuerCombobox({
                       : "text-white/80"
                   }`}
                 >
-                  <IssuerLogo svg={i.svg} size={20} />
+                  <IssuerLogo issuer={i} size={20} />
                   <span className="truncate">{i.label}</span>
                 </button>
               </li>
             ))}
             {filtered.length === 0 && (
-              <li className="px-3 py-2 text-[12px] text-white/40">No matches.</li>
+              <li className="px-3 py-2 text-[12px] text-white/40">
+                No matches.
+              </li>
             )}
             <li className="mt-1 border-t border-white/[0.05]">
               <button
@@ -1172,7 +1191,9 @@ function IssuerCombobox({
                   setOpen(false);
                 }}
                 className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] transition hover:bg-white/[0.06] ${
-                  mode === "other" ? "text-white" : "text-white/55 hover:text-white"
+                  mode === "other"
+                    ? "text-white"
+                    : "text-white/55 hover:text-white"
                 }`}
               >
                 <span
@@ -1189,38 +1210,6 @@ function IssuerCombobox({
       )}
     </div>
   );
-}
-
-/** Native month input — value is `YYYY-MM`. */
-function MonthInput({
-  value,
-  onChange,
-  disabled,
-  min,
-  max,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  disabled?: boolean;
-  min?: string;
-  max?: string;
-}) {
-  return (
-    <input
-      type="month"
-      value={value}
-      min={min}
-      max={max}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={disabled}
-      className="h-9 w-full rounded-lg border border-white/10 bg-black/30 px-2.5 text-[13.5px] outline-none focus:border-indigo-400/40 disabled:cursor-not-allowed disabled:opacity-40"
-    />
-  );
-}
-
-function isoYearMonthNow(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -1275,6 +1264,35 @@ function Field({
   );
 }
 
+function CommaListInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  placeholder?: string;
+}) {
+  const [raw, setRaw] = useState(() => value.join(", "));
+
+  useEffect(() => {
+    if (!sameStringList(parseCommaList(raw), value)) {
+      setRaw(value.join(", "));
+    }
+  }, [raw, value]);
+
+  return (
+    <TextInput
+      value={raw}
+      onChange={(nextRaw) => {
+        setRaw(nextRaw);
+        onChange(parseCommaList(nextRaw));
+      }}
+      placeholder={placeholder}
+    />
+  );
+}
+
 function TextInput({
   value,
   onChange,
@@ -1304,6 +1322,67 @@ function TextInput({
       className="h-9 w-full rounded-lg border border-white/10 bg-black/30 px-2.5 text-[13.5px] outline-none placeholder:text-white/25 focus:border-indigo-400/40 disabled:cursor-not-allowed disabled:opacity-50"
     />
   );
+}
+
+function parseCommaList(value: string): string[] {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function sameStringList(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((item, index) => item === b[index]);
+}
+
+function friendlyValidationMessage(issue: ZodIssue | undefined): string {
+  if (!issue) return "Please check the highlighted details and try again.";
+
+  const path = issue.path;
+  const field = friendlyPath(path);
+  const message =
+    issue.code === "invalid_string" && issue.validation === "url"
+      ? "Enter a valid URL, or leave it blank."
+      : issue.code === "invalid_string" && issue.validation === "email"
+        ? "Enter a valid email address, or leave it blank."
+        : issue.message;
+
+  return field ? `${field}: ${message}` : message;
+}
+
+function friendlyPath(path: Array<string | number>): string {
+  if (path[0] === "projects" && typeof path[1] === "number") {
+    const field = {
+      name: "name",
+      blurb: "blurb",
+      tech: "tech",
+      demoUrl: "demo URL",
+      repoUrl: "repo URL",
+    }[String(path[2])];
+    return `Project ${path[1] + 1}${field ? ` ${field}` : ""}`;
+  }
+
+  if (path[0] === "identity" && path[1] === "links") {
+    const field = {
+      site: "Website",
+      x: "X / Twitter URL",
+      linkedin: "LinkedIn URL",
+      email: "Public email",
+    }[String(path[2])];
+    if (field) return field;
+  }
+
+  if (path[0] === "credentials" && typeof path[1] === "number") {
+    const field = {
+      title: "title",
+      issuer: "issuer",
+      url: "verify URL",
+      skills: "skills",
+    }[String(path[2])];
+    return `Credential ${path[1] + 1}${field ? ` ${field}` : ""}`;
+  }
+
+  return "";
 }
 
 function TextArea({
@@ -1400,7 +1479,9 @@ function Spinner({ dark = false }: { dark?: boolean }) {
     <span
       aria-hidden
       className={`inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 ${
-        dark ? "border-black/30 border-t-black" : "border-white/30 border-t-white"
+        dark
+          ? "border-black/30 border-t-black"
+          : "border-white/30 border-t-white"
       }`}
     />
   );
@@ -1408,13 +1489,7 @@ function Spinner({ dark = false }: { dark?: boolean }) {
 
 function CloseIcon() {
   return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 14 14"
-      fill="none"
-      aria-hidden
-    >
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
       <path
         d="M3 3l8 8M11 3l-8 8"
         stroke="currentColor"
