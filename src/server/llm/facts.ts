@@ -377,6 +377,9 @@ export async function buildFacts(
     abilities,
     stats,
     projects,
+    // User-curated; never populated by the generator. The dashboard's
+    // Credentials tab is the only entry point.
+    credentials: [],
   };
 
   return { data: profileDataSchema.parse(data), usage };
