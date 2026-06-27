@@ -49,6 +49,7 @@ export default async function DashboardPage() {
         abilities: [],
         stats: [],
         projects: [],
+        credentials: [],
       };
 
   const displayName =
@@ -59,8 +60,12 @@ export default async function DashboardPage() {
     rootDomain.startsWith("localhost") || rootDomain.startsWith("127.")
       ? "http://"
       : "https://";
-  // Public URL on the subdomain — what Preview opens in a new tab.
-  const publicUrl = `${protocol}${portfolio.slug}.${rootDomain}`;
+  // Public URL — what Preview / "open in new tab" point at. We use a PATH on
+  // the (always cert-covered) root domain rather than `<slug>.<root>`: a
+  // multi-level subdomain like `slug.porthub.rami.co.nz` isn't covered by
+  // Cloudflare's universal cert, so the subdomain form fails TLS. The path
+  // form works on every deployment regardless of cert scope.
+  const publicUrl = `${protocol}${rootDomain}/sites/${portfolio.slug}`;
   // Same-origin render route — what the embedded preview iframe loads.
   const embedUrl = `/sites/${portfolio.slug}`;
 
