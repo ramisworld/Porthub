@@ -6,7 +6,10 @@ import { db } from "~/server/db";
 const GENERATION_LOCK_TTL_MS = 15 * 60 * 1000;
 const QUOTA_REACHED = "QUOTA_REACHED";
 
-type LockDeniedCode = "generation_in_progress" | "quota_reached";
+type LockDeniedCode =
+  | "generation_in_progress"
+  | "quota_reached"
+  | "session_invalid";
 
 export type GenerationLockResult =
   | { ok: true }
@@ -14,18 +17,21 @@ export type GenerationLockResult =
       ok: false;
       code: LockDeniedCode;
       error: string;
-      status: 409;
+      status: 401 | 409;
       retryAfter?: number;
     };
 
-function isUniqueConflict(err: unknown) {
+function hasPrismaErrorCode(err: unknown, code: string): boolean {
   return (
     typeof err === "object" &&
     err !== null &&
     "code" in err &&
-    (err as { code?: unknown }).code === "P2002"
+    (err as { code?: unknown }).code === code
   );
 }
+
+const isUniqueConflict = (e: unknown) => hasPrismaErrorCode(e, "P2002");
+const isFkViolation = (e: unknown) => hasPrismaErrorCode(e, "P2003");
 
 export async function acquireGenerationLock(
   ownerId: string,
@@ -85,6 +91,20 @@ export async function acquireGenerationLock(
         retryAfter,
         error:
           "A generation is already running for this account. Wait for it to finish before starting another.",
+      };
+    }
+
+    // P2003 here means the session pointed at a `User.id` that no longer
+    // exists (admin nuked the row, dev wiped the DB, etc.). The cookie was
+    // still cryptographically valid, but the underlying account is gone, so
+    // the right response is "your session ended — sign in again", NOT a 500.
+    if (isFkViolation(err)) {
+      return {
+        ok: false,
+        code: "session_invalid",
+        status: 401,
+        error:
+          "Your session is no longer valid. Sign in again to keep generating.",
       };
     }
 
