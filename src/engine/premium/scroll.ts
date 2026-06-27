@@ -16,14 +16,44 @@ const reduce =
   typeof window.matchMedia === "function" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/**
+ * Phone / narrow-iframe mode.
+ *
+ * On nested iframes (the dashboard preview embeds /sites/[slug] which itself
+ * sandboxes the portfolio in a srcDoc iframe), scroll events and
+ * IntersectionObserver / ScrollTrigger fire unreliably. The symptom is that
+ * everything below the initial viewport stays at opacity: 0 forever — the
+ * user sees the hero and a long black void underneath.
+ *
+ * The fix: when we're in a small viewport, skip scroll-driven reveals
+ * entirely and just animate everything in immediately with a small stagger.
+ * The portfolio renders fully populated, the user can scroll naturally.
+ */
+function isPhoneView(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.innerWidth <= 720;
+}
+
 /** Section headings wipe + rise in as they enter — the crazzy "assemble" feel. */
 function headingReveals(): void {
-  if (!scrollTriggerReady) return;
   // Section headings only — the hero name has its own scramble.
   const heads = Array.from(
     document.querySelectorAll<HTMLElement>("#ph-app section h2"),
   ).filter((h) => !h.closest(".xp-hero"));
   if (!heads.length) return;
+
+  // Phone / nested-iframe mode: skip the scroll-triggered wipe, just stamp
+  // them visible. Without this they'd stay invisible because the inner
+  // iframe never gets a scroll event on mobile.
+  if (!scrollTriggerReady || isPhoneView()) {
+    gsap.set(heads, {
+      yPercent: 0,
+      opacity: 1,
+      clipPath: "inset(0 0 0% 0)",
+    });
+    return;
+  }
+
   gsap.set(heads, { yPercent: 24, opacity: 0, clipPath: "inset(0 0 100% 0)" });
   ScrollTrigger.batch(heads, {
     start: "top 90%",
@@ -45,7 +75,7 @@ function decryptHeadings(): void {
   const heads = Array.from(
     document.querySelectorAll<HTMLElement>("#ph-app .xp-tn-h2"),
   );
-  if (!heads.length || typeof IntersectionObserver !== "function") return;
+  if (!heads.length) return;
   const GLYPHS = "01<>/\\[]{}#$%&*+=!?~^";
   const run = (el: HTMLElement) => {
     const target = el.textContent ?? "";
@@ -66,6 +96,15 @@ function decryptHeadings(): void {
       }
     }, 28);
   };
+
+  // Phone / nested-iframe: IntersectionObserver inside the inner srcDoc
+  // iframe is unreliable on mobile, so just kick off all the decryptions
+  // immediately, staggered so it still feels like a sequence.
+  if (typeof IntersectionObserver !== "function" || isPhoneView()) {
+    heads.forEach((h, i) => window.setTimeout(() => run(h), i * 220));
+    return;
+  }
+
   const io = new IntersectionObserver(
     (entries) => {
       entries.forEach((e) => {
@@ -108,8 +147,18 @@ export function initReveals(): void {
   );
 
   if (els.length) {
-    if (!scrollTriggerReady || reduce) {
-      gsap.to(els, { opacity: 1, y: 0, duration: 0.6, stagger: 0.05 });
+    // Phone / nested-iframe / reduced motion / no ScrollTrigger: reveal
+    // everything immediately so the page is fully visible without depending
+    // on scroll events that may never fire (see isPhoneView() comment).
+    if (!scrollTriggerReady || reduce || isPhoneView()) {
+      gsap.set(els, { opacity: 0, y: 12 });
+      gsap.to(els, {
+        opacity: 1,
+        y: 0,
+        duration: 0.55,
+        stagger: 0.04,
+        ease: "power2.out",
+      });
     } else {
       gsap.set(els, { opacity: 0, y: 36, scale: 0.985 });
       ScrollTrigger.batch(els, {
