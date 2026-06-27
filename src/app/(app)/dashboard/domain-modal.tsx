@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import type { DomainWithInstructions } from "~/server/api/routers/domain";
 
@@ -52,6 +52,22 @@ export function DomainModal({
       setHostname("");
     },
   });
+
+  // Auto-poll while the domain is connecting so the user never has to sit
+  // there clicking "Check now". Every 20s (well under the 6/min rate limit,
+  // leaving room for a manual click). Stops automatically once it's live.
+  const recheckRef = useRef(recheck);
+  recheckRef.current = recheck;
+  const connecting = !!existing && existing.status !== "active";
+  useEffect(() => {
+    if (!connecting) return;
+    const id = window.setInterval(() => {
+      const r = recheckRef.current;
+      if (!r.isPending) r.mutate();
+    }, 20000);
+    return () => window.clearInterval(id);
+    // Re-arm only when the domain id or its status changes — not on every poll.
+  }, [connecting, existing?.id, existing?.status]);
 
   // Lock body scroll while open.
   useEffect(() => {
@@ -265,6 +281,10 @@ function RecordsStep({
     <div className="space-y-4">
       <Banner tone={banner.tone} title={banner.title} body={banner.body} />
 
+      {domain.status !== "active" && (
+        <CheckingStrip checking={rechecking} lastCheckedAt={domain.lastCheckedAt} />
+      )}
+
       <div>
         <p className="mb-2 text-[11.5px] font-medium tracking-[0.14em] text-white/55 uppercase">
           Add these records at your domain provider
@@ -297,8 +317,8 @@ function RecordsStep({
 
         {!txt && (
           <p className="mt-2 text-[11.5px] text-white/40">
-            Add the CNAME, then click Check now — we&apos;ll fetch the
-            verification record from Railway.
+            Add the CNAME — we&apos;ll fetch the verification record from
+            Railway automatically.
           </p>
         )}
 
@@ -339,6 +359,48 @@ function RecordsStep({
       </div>
     </div>
   );
+}
+
+/** Live "we're working on it" strip shown while a domain is connecting, so the
+ *  UI never looks frozen. Ticks a relative "last checked" time each second. */
+function CheckingStrip({
+  checking,
+  lastCheckedAt,
+}: {
+  checking: boolean;
+  lastCheckedAt: Date | null;
+}) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setTick((t) => t + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const ago = lastCheckedAt ? relativeTime(lastCheckedAt) : null;
+  return (
+    <div className="flex items-center gap-2.5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11.5px] text-white/60">
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400/60" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-400" />
+      </span>
+      <span>
+        {checking
+          ? "Checking now…"
+          : "Checking automatically every 20s"}
+        {ago && !checking ? ` · last checked ${ago}` : ""}
+      </span>
+    </div>
+  );
+}
+
+function relativeTime(d: Date): string {
+  const secs = Math.max(
+    0,
+    Math.round((Date.now() - new Date(d).getTime()) / 1000),
+  );
+  if (secs < 5) return "just now";
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.round(secs / 60);
+  return `${mins}m ago`;
 }
 
 function explainPending(domain: DomainRow): string {
