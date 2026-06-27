@@ -42,7 +42,7 @@ export function buildPortfolioMetadata({
       url: canonicalUrl,
       images: [
         {
-          url: "/opengraph-image",
+          url: "/api/og",
           width: 1200,
           height: 630,
           alt: title,
@@ -53,7 +53,7 @@ export function buildPortfolioMetadata({
       card: "summary_large_image",
       title,
       description: headline,
-      images: ["/opengraph-image"],
+      images: ["/api/og"],
     },
     robots: isPublic ? undefined : { index: false, follow: false },
   };

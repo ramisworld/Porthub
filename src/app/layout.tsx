@@ -14,6 +14,21 @@ export const metadata: Metadata = {
     description:
       "Type your GitHub username, describe a vibe, and get a unique interactive portfolio in seconds.",
     type: "website",
+    images: [
+      {
+        url: "/api/og",
+        width: 1200,
+        height: 630,
+        alt: "PortHub — Your GitHub, as a portfolio",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PortHub — your GitHub, as a bespoke portfolio",
+    description:
+      "Type your GitHub username, describe a vibe, and get a unique interactive portfolio in seconds.",
+    images: ["/api/og"],
   },
 };
 

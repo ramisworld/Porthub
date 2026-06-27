@@ -9,12 +9,6 @@ const RESERVED = new Set(["www", "app", "api"]);
 
 /** Map a public portfolio URL path to the internal App Router handler. */
 function portfolioInternalPath(base: string, requestPath: string): string {
-  if (
-    requestPath === "/opengraph-image" ||
-    requestPath.startsWith("/opengraph-image?")
-  ) {
-    return `${base}/opengraph-image`;
-  }
   if (requestPath === "/icon" || requestPath.startsWith("/icon?")) {
     return `${base}/icon`;
   }
