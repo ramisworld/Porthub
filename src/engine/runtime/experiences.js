@@ -316,80 +316,160 @@
     return "Systems \u00b7 tooling \u00b7 interfaces";
   }
 
-  // FIELD_LOG — intercepted signal fragments. Authored entries in an AI-engineer's
-  // voice. Specific, technical, no lorem. Each fragment now also carries a
-  // source/channel tag so it reads as "intelligence captured from somewhere",
-  // not as a blog list.
-  var TN_LOG = [
-    {
-      hash: "a1f9c2",
-      t: "2026-06-21",
-      src: "/agent/loop",
-      k: "agent eval harness",
-      b: "Wired a deterministic grader into the agent loop. Trace-level scoring cut false-positive tool calls by ~40% on the eval set. Still hunting the last retry storm.",
-    },
-    {
-      hash: "7e0b18",
-      t: "2026-06-14",
-      src: "/training/qlora",
-      k: "QLoRA on a 7B base",
-      b: "Ran QLoRA with synthetic + LLM-judged pairs. Judge tracked the human rubric within 0.08 kappa. Cheaper than expected \u2014 latency is the real constraint.",
-    },
-    {
-      hash: "c43d77",
-      t: "2026-06-07",
-      src: "/ui/stream",
-      k: "streaming UX",
-      b: "Swapped request/response for token streaming with a cancelable abort. First token under 300ms, perceived latency collapsed. It finally feels like a conversation.",
-    },
-    {
-      hash: "0e8a5b",
-      t: "2026-05-29",
-      src: "/rag/guard",
-      k: "RAG that doesn't lie",
-      b: "Added citations plus a retrieval guard that refuses when grounding is weak. Accuracy up \u2014 but people trust the \u2018I don\u2019t know\u2019 more than the confident answer. Noted.",
-    },
+  // CREDENTIALS — user-curated certifications & licenses.
+  //
+  // Cards mirror the LinkedIn "Licenses & Certifications" block: icon mark,
+  // title, issuer, issued/expires line, optional credential ID, optional
+  // skills row, and a "Show credential" link when the user supplied a verify
+  // URL. The section is hidden entirely when `data.credentials` is empty —
+  // the default portfolio looks identical to before.
+  function tnHasCredentials(data) {
+    return arr(data.credentials).length > 0;
+  }
+
+  // YYYY-MM → "May 2026". Tolerant of partial/garbage input.
+  var TN_MONTHS = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
   ];
-  function tnFieldLog() {
-    return TN_LOG.map(function (e, i) {
+  function tnFmtMonth(s) {
+    if (!s || typeof s !== "string") return "";
+    var m = s.match(/^(\d{4})-(\d{1,2})/);
+    if (!m) return s;
+    var idx = parseInt(m[2], 10) - 1;
+    if (idx < 0 || idx > 11) return s;
+    return TN_MONTHS[idx] + " " + m[1];
+  }
+
+  // Icon-only logo for a credential. Falls back to a brand-accent square
+  // with the first 2 letters of the issuer when the key isn't registered.
+  function tnCredLogo(c) {
+    var key = c.issuerKey || "";
+    var svg = PH.issuerSvg ? PH.issuerSvg(key) : "";
+    if (svg) {
+      var col = PH.issuerColor ? PH.issuerColor(key) : "";
       return (
-        '<div class="xp-tn-logentry reveal" style="--i:' +
-        i +
-        '">' +
-        '<span class="xp-tn-loghash">' +
-        esc(e.hash) +
-        "</span>" +
-        '<span class="xp-tn-logtime">' +
-        esc(e.t) +
-        " \u00b7 " +
-        esc(e.src) +
-        "</span>" +
-        "<p><b>" +
-        esc(e.k) +
-        "</b> \u2014 " +
-        esc(e.b) +
-        "</p></div>"
+        '<span class="xp-tn-cred-logo" data-key="' +
+        esc(key) +
+        '"' +
+        (col ? ' style="--ph-issuer:' + col + '"' : "") +
+        ">" +
+        svg +
+        "</span>"
       );
-    }).join("");
+    }
+    var label = (c.issuer || "??").trim();
+    var initials = label
+      .split(/\s+/)
+      .map(function (w) { return w.charAt(0); })
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "??";
+    // Deterministic hue from the issuer string so unknown issuers stay stable
+    // across re-renders instead of flicker-changing colors.
+    var hash = 0;
+    for (var i = 0; i < label.length; i++) {
+      hash = (hash * 31 + label.charCodeAt(i)) | 0;
+    }
+    var hue = Math.abs(hash) % 360;
+    return (
+      '<span class="xp-tn-cred-logo xp-tn-cred-logo-fb" style="--ph-issuer:hsl(' +
+      hue +
+      ',55%,45%)">' +
+      '<span class="xp-tn-cred-initials">' +
+      esc(initials) +
+      "</span></span>"
+    );
+  }
+
+  function tnCredCard(c, i) {
+    var dateLine = "";
+    var issued = tnFmtMonth(c.issuedAt);
+    var expires = tnFmtMonth(c.expiresAt);
+    if (issued && expires) {
+      dateLine = "Issued " + issued + " \u00b7 Expires " + expires;
+    } else if (issued) {
+      dateLine = "Issued " + issued + " \u00b7 No expiration";
+    } else if (expires) {
+      dateLine = "Expires " + expires;
+    }
+    var skills = arr(c.skills)
+      .slice(0, 8)
+      .map(function (s) {
+        return '<span class="xp-tn-cred-skill">' + esc(s) + "</span>";
+      })
+      .join("");
+    var credIdRow = c.credentialId
+      ? '<div class="xp-tn-cred-credid"><em>Credential ID</em><span>' +
+        esc(c.credentialId) +
+        "</span></div>"
+      : "";
+    var verifyRow = c.url
+      ? '<a class="xp-tn-cred-verify" href="' +
+        esc(c.url) +
+        '" target="_blank" rel="noreferrer">Show credential' +
+        '<i aria-hidden="true">&#8599;</i></a>'
+      : "";
+    // The VERIFIED stamp lives in the card head as a real element (not a
+    // ::before pseudo) so the title block always reserves space for it.
+    // Without this the badge floated absolute and a long title would slide
+    // under it. The stamp is hidden until hover for low-noise resting state.
+    return (
+      '<article class="xp-tn-cred reveal" style="--i:' +
+      i +
+      '">' +
+      '<div class="xp-tn-cred-glow" aria-hidden="true"></div>' +
+      '<div class="xp-tn-cred-head">' +
+      tnCredLogo(c) +
+      '<div class="xp-tn-cred-meta">' +
+      '<h3 class="xp-tn-cred-title">' +
+      esc(c.title || "Credential") +
+      "</h3>" +
+      '<p class="xp-tn-cred-issuer">' +
+      esc(c.issuer || "") +
+      "</p>" +
+      (dateLine
+        ? '<p class="xp-tn-cred-date">' + esc(dateLine) + "</p>"
+        : "") +
+      "</div>" +
+      '<span class="xp-tn-cred-badge" aria-hidden="true">VERIFIED</span>' +
+      "</div>" +
+      credIdRow +
+      (skills
+        ? '<div class="xp-tn-cred-skills">' + skills + "</div>"
+        : "") +
+      verifyRow +
+      "</article>"
+    );
+  }
+
+  function tnCredentials(data) {
+    return arr(data.credentials).map(tnCredCard).join("");
   }
 
   function terminalNexus(data) {
     var l = links(data);
     var loc = identity(data).location || "";
     var handle = ghHandle(data) || name(data);
-    var host = siteHost(data);
     var brand = (handle || name(data) || "ghost").toUpperCase();
     var user = brand.toLowerCase();
     var gh = ghHandle(data);
     var stackStr = tnStack(data);
 
+    var hasCreds = tnHasCredentials(data);
     var items = [
       { id: "hero", k: "00", label: "ROOT" },
       { id: "status", k: "01", label: "STATUS" },
       { id: "systems", k: "02", label: "SYSTEMS" },
-      { id: "log", k: "03", label: "FIELD_LOG" },
-      { id: "ping", k: "04", label: "SIGNAL" },
     ];
+    if (hasCreds) {
+      items.push({ id: "creds", k: "03", label: "CREDENTIALS" });
+      items.push({ id: "ping", k: "04", label: "SIGNAL" });
+    } else {
+      // No credentials? Re-number the SIGNAL section so the rail stays
+      // continuous (00 ROOT, 01 STATUS, 02 SYSTEMS, 03 SIGNAL).
+      items.push({ id: "ping", k: "03", label: "SIGNAL" });
+    }
     var rail =
       '<nav class="xp-nav xp-tn-rail" aria-label="Sections">' +
       items
@@ -410,13 +490,14 @@
       "</nav>";
 
     // ---- top telemetry HUD strip ----
+    // The site host badge ("// rami.co.nz") was removed alongside the SITE
+    // link in the contact panel: the portfolio no longer surfaces the user's
+    // external site URL anywhere in chrome. It's still accessible from the
+    // in-page terminal (`cat contact.txt`) for power users.
     var strip =
       '<header class="xp-tn-strip">' +
       '<span class="xp-tn-strip-brand"><b>&gt;_</b> ' +
       esc(brand) +
-      (host
-        ? '<i>//</i><span class="xp-tn-host">' + esc(host) + "</span>"
-        : "") +
       "</span>" +
       '<span class="xp-tn-strip-mid"><span class="xp-tn-up">UPLINK <b>SECURE</b></span>' +
       '<i class="xp-tn-blink">&#9679;</i><span class="xp-tn-lat">LAT <b>24</b>ms</span></span>' +
@@ -467,9 +548,9 @@
       })
       .join("");
 
-    // ---- SYSTEMS — minimal horizontal project grid (3 up / 3 down), shaped ----
-    var repos = arr(data.projects)
-      .slice(0, 6)
+    // ---- SYSTEMS — minimal project grid (up to 9 → 3x3), shaped ----
+    var repoList = arr(data.projects).slice(0, 9);
+    var repos = repoList
       .map(function (p, i) {
         var tech = arr(p.tech)
           .slice(0, 3)
@@ -540,20 +621,26 @@
       tnHead("02", "SYSTEMS", "DIR_LIST") +
       '<div class="xp-tn-prompt xp-tn-lsprompt">root@' +
       esc(user) +
-      ":~# ls -lA --sort=stars /var/repos/ \u00b7 6 found</div>" +
+      ":~# ls -lA --sort=stars /var/repos/ \u00b7 " +
+      repoList.length +
+      " found</div>" +
       '<div class="xp-tn-grid">' +
       repos +
       "</div></section>" +
-      '<section id="log" class="xp-tn-section">' +
-      tnHead("03", "FIELD_LOG", "NOTES") +
-      '<div class="xp-tn-prompt xp-tn-lsprompt">root@' +
-      esc(user) +
-      ":~# tail -n 4 /var/log/field.log</div>" +
-      '<div class="xp-tn-log">' +
-      tnFieldLog() +
-      "</div></section>" +
+      (hasCreds
+        ? '<section id="creds" class="xp-tn-section xp-tn-creds-section">' +
+          tnHead("03", "CREDENTIALS", "VERIFIED") +
+          '<div class="xp-tn-prompt xp-tn-lsprompt">root@' +
+          esc(user) +
+          ":~# cat /etc/credentials.d/* \u00b7 " +
+          String(arr(data.credentials).length) +
+          " issued</div>" +
+          '<div class="xp-tn-creds">' +
+          tnCredentials(data) +
+          "</div></section>"
+        : "") +
       '<section id="ping" class="xp-tn-section xp-tn-ping">' +
-      tnHead("04", "SIGNAL", "HANDSHAKE") +
+      tnHead(hasCreds ? "04" : "03", "SIGNAL", "HANDSHAKE") +
       '<div class="xp-tn-console xp-tn-handshake-console">' +
       '<div class="xp-tn-panelbar"><span>root@' +
       esc(user) +
@@ -586,25 +673,17 @@
       "</button>" +
       "</div>" +
       // -- secondary links (open in new tab)
+      // The SITE link and the LOC strip were removed intentionally — the
+      // GitHub handle is the only secondary identity we surface here. Email
+      // is the primary copy-action above; the user's site URL (if any) is
+      // still discoverable in the in-page terminal via `cat contact.txt`.
       '<div class="xp-tn-hs-meta">' +
-      (l.site
-        ? '<a class="xp-tn-hs-meta-link" href="' +
-          esc(l.site) +
-          '" target="_blank" rel="noreferrer"><span>SITE</span>' +
-          esc(host || l.site) +
-          "<i>&#8599;</i></a>"
-        : "") +
       (l.github
         ? '<a class="xp-tn-hs-meta-link" href="' +
           esc(l.github) +
           '" target="_blank" rel="noreferrer"><span>OPEN</span>github.com/' +
           esc(gh || "") +
           "<i>&#8599;</i></a>"
-        : "") +
-      (loc
-        ? '<span class="xp-tn-hs-meta-link"><span>LOC</span>' +
-          esc(loc) +
-          "</span>"
         : "") +
       "</div>" +
       "</div></div></section>" +
@@ -1712,7 +1791,7 @@
       return l.label;
     });
     var stackStr = tnStack(data);
-    var projs = arr(data.projects).slice(0, 8);
+    var projs = arr(data.projects).slice(0, 9);
     var ident = identity(data);
     var contactTxt =
       "name:   " +
@@ -1737,12 +1816,32 @@
       null,
       2,
     );
-    var fieldLogTxt =
-      TN_LOG.map(function (e) {
-        return (
-          e.t + "  " + e.hash + "  " + e.src + "\n  " + e.k + " — " + e.b
-        );
-      }).join("\n\n") + "\n";
+    // Used to populate ~/credentials.txt in the interactive terminal. Mirrors
+    // the data the CREDENTIALS section renders visually so power users can
+    // `cat ~/credentials.txt` and get the same info in text form. Returns
+    // a friendly "(none yet)" stub when the user hasn't added any.
+    var credsTxt = (function () {
+      var rows = arr(data.credentials);
+      if (!rows.length) return "(none yet)\n";
+      return (
+        rows
+          .map(function (c) {
+            var dates = "";
+            var i = c.issuedAt ? "issued " + c.issuedAt : "";
+            var x = c.expiresAt ? "expires " + c.expiresAt : "";
+            if (i && x) dates = i + " · " + x;
+            else if (i) dates = i;
+            else if (x) dates = x;
+            var line2 = [c.issuer, dates].filter(Boolean).join(" · ");
+            var line3 = c.credentialId ? "id: " + c.credentialId : "";
+            var line4 = c.url ? "verify: " + c.url : "";
+            return [c.title, line2, line3, line4]
+              .filter(Boolean)
+              .join("\n  ");
+          })
+          .join("\n\n") + "\n"
+      );
+    })();
 
     // Two-tier tree: root → ~/ + children. Anything outside ~ is virtualized
     // away (cd /etc returns the "no such file" you'd expect).
@@ -1759,7 +1858,7 @@
           "stack.txt": { type: "file", text: stackStr + "\n" },
           "projects.json": { type: "file", text: projectsJson + "\n" },
           "contact.txt": { type: "file", text: contactTxt },
-          "field.log": { type: "file", text: fieldLogTxt },
+          "credentials.txt": { type: "file", text: credsTxt },
           ".bashrc": {
             type: "file",
             text:
@@ -2115,9 +2214,9 @@
       if (e.target.closest("a,button")) return;
       input.focus();
     });
-    window.setTimeout(function () {
-      input.focus();
-    }, 500);
+    // Do not autofocus on load. Inside the dashboard preview this document is
+    // sandboxed one iframe deeper; focusing the lower terminal input can make
+    // the browser scroll the portfolio down before the user sees the hero.
   }
 
   PH.experiences = {
