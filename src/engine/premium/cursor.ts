@@ -2,9 +2,19 @@ import gsap from "gsap";
 import type { DesignSpec } from "../spec";
 import { isTouch } from "./support";
 
-/** Custom cursor: a square/circle/dot that trails the pointer and grows on links. */
+/** Custom cursor: a square/circle/dot that trails the pointer and grows on links.
+ *
+ * Skips entirely on:
+ *   • opt-out via spec (`cursor: "none"`),
+ *   • touch devices (`pointer:coarse`), and
+ *   • narrow viewports (≤ 720px) — covers DevTools mobile emulation and any
+ *     small embedded preview where a pointer cursor wouldn't make sense
+ *     visually (the floating square was the worst offender on phone-width
+ *     previews of the dashboard).
+ */
 export function initCursor(spec: DesignSpec): void {
   if (spec.cursor === "none" || isTouch()) return;
+  if (typeof window !== "undefined" && window.innerWidth <= 720) return;
 
   const shape = spec.cursor;
   const size = shape === "dot" ? 9 : 26;
