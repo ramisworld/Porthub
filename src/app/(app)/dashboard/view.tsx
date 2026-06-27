@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "~/trpc/react";
 import type { ProfileData } from "~/server/profile/model";
 import { EditModal } from "./edit-modal";
 import { DomainTile } from "./domain-tile";
@@ -11,13 +10,13 @@ import { DomainTile } from "./domain-tile";
  * Dashboard view — viewport-fit on desktop (no scroll), scrollable on mobile.
  *
  * Layout (desktop):
- *   row 1   header           — title, meta, primary CTAs (flex-none)
+ *   row 1   header           — title, meta, [custom domain · Preview · Edit] (flex-none)
  *   row 2   preview iframe   — flex-1 min-h-0; fills the remaining height
- *   row 3   secondary bar    — URL · copy · visibility (flex-none)
  *
  * Edit opens a liquid-glass modal in the same screen instead of routing away.
- * Delete intentionally absent from the dashboard (keeps the success screen
- * single-purposed; the backend route is still there for future flows).
+ * The custom-domain tile lives in the header action cluster; the old bottom
+ * bar (slug URL + copy + public/private toggle) was removed for a cleaner,
+ * single-focus result screen.
  */
 export function DashboardView(props: {
   id: string;
@@ -33,59 +32,52 @@ export function DashboardView(props: {
 }) {
   const router = useRouter();
 
-  const [copied, setCopied] = useState(false);
-  const [isPublic, setIsPublic] = useState(props.isPublic);
-  const [visError, setVisError] = useState<string | null>(null);
   const [previewLoaded, setPreviewLoaded] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [editorOpen, setEditorOpen] = useState(false);
+  // Local mirror of the server-rendered profile data so the editor reflects
+  // user edits immediately on reopen — without it, `props.profileData` is
+  // the snapshot from the initial page load and stale until a hard refresh.
+  const [profileData, setProfileData] = useState<ProfileData>(
+    props.profileData,
+  );
 
-  const setPublicMut = api.portfolio.setPublic.useMutation({
-    onError: (err) => {
-      // Roll back the optimistic flip and surface the reason — silent failure
-      // is what made the toggle feel "stuck" before.
-      setIsPublic((v) => !v);
-      setVisError(err.message);
-      window.setTimeout(() => setVisError(null), 3000);
-    },
-    onSuccess: () => {
-      setVisError(null);
-      router.refresh();
-    },
-  });
+  // If the server prop changes (e.g. after router.refresh) but the editor is
+  // closed, accept the new server state as the source of truth.
+  useEffect(() => {
+    if (!editorOpen) setProfileData(props.profileData);
+  }, [props.profileData, editorOpen]);
 
-  const toggleVisibility = () => {
-    // Use the functional setter so two fast clicks resolve against the latest
-    // value, not a captured-closure stale value.
-    setIsPublic((current) => {
-      const next = !current;
-      setPublicMut.mutate({ isPublic: next });
-      return next;
-    });
-  };
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(props.publicUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1400);
-    } catch {
-      /* noop */
-    }
-  };
-
-  const created = new Date(props.createdAt).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
+  // Format deterministically so SSR (server locale) and CSR (browser locale)
+  // produce identical strings. `toLocaleDateString(undefined, …)` is locale
+  // dependent and was causing a hydration mismatch (en-NZ "26 Jun" on the
+  // server vs en-US "Jun 26" in the browser).
+  const created = (() => {
+    const d = new Date(props.createdAt);
+    const months = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
+    return `${d.getDate()} ${months[d.getMonth()]}`;
+  })();
 
   const iframeSrc = `${props.embedUrl}?v=${reloadKey}`;
 
   // Saving in the modal triggers a preview refresh so the user sees their
-  // edits reflected without leaving the dashboard.
+  // edits reflected without leaving the dashboard. We also pull fresh server
+  // data so the rest of the dashboard (updatedAt, etc.) stays in sync.
   const refreshPreview = () => {
     setPreviewLoaded(false);
     setReloadKey((k) => k + 1);
+    router.refresh();
+  };
+
+  // Called by the editor on every successful save with the freshly-persisted
+  // payload — keeps the local mirror in lock-step so re-opening the modal
+  // shows the latest credentials, abilities, etc. without a full reload.
+  const handleSaved = (saved: ProfileData) => {
+    setProfileData(saved);
+    refreshPreview();
   };
 
   return (
@@ -112,11 +104,13 @@ export function DashboardView(props: {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Custom domain — moved up here from the old bottom bar. */}
+          <DomainTile />
           <a
             href={props.publicUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 text-[13px] font-medium text-white/85 transition hover:bg-white/[0.07] hover:text-white"
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 text-[13px] font-medium text-white/85 transition hover:bg-white/[0.07] hover:text-white"
           >
             Preview
             <ExternalArrow />
@@ -124,7 +118,7 @@ export function DashboardView(props: {
           <button
             type="button"
             onClick={() => setEditorOpen(true)}
-            className="group inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3.5 text-[13px] font-medium text-black transition hover:bg-white/90"
+            className="group inline-flex h-10 items-center gap-1.5 rounded-lg bg-white px-3.5 text-[13px] font-medium text-black transition hover:bg-white/90"
           >
             Edit
             <Arrow />
@@ -141,60 +135,13 @@ export function DashboardView(props: {
         publicUrl={props.publicUrl}
       />
 
-      {/* Row 3 — secondary bar ---------------------------------------------- */}
-      <div className="flex flex-none flex-col items-stretch gap-2 sm:flex-row">
-        {/* URL */}
-        <div className="flex h-10 min-w-0 flex-1 items-center gap-1 rounded-xl border border-white/[0.06] bg-black/30 px-1 backdrop-blur-md">
-          <span className="px-2 font-mono text-[12.5px] text-white/35 select-none">
-            ↳
-          </span>
-          <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-white/80">
-            {props.publicUrl}
-          </span>
-          <button
-            type="button"
-            onClick={copy}
-            className="inline-flex h-8 items-center rounded-md px-2.5 text-[11.5px] text-white/55 transition hover:bg-white/[0.04] hover:text-white"
-          >
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-
-        {/* Visibility — the whole tile is clickable so the affordance never
-            relies on hitting the small toggle exactly. */}
-        <button
-          type="button"
-          onClick={toggleVisibility}
-          aria-pressed={isPublic}
-          className="flex h-10 items-center gap-3 rounded-xl border border-white/[0.06] bg-black/25 px-3 text-left backdrop-blur-md transition hover:bg-black/35"
-        >
-          <div className="leading-tight">
-            <p className="text-[12px] text-white">
-              {visError
-                ? "Try again"
-                : isPublic
-                  ? "Public"
-                  : "Private"}
-            </p>
-            <p className="text-[10.5px] text-white/45">
-              {visError ??
-                (isPublic ? "Indexable" : "Hidden · only direct link works")}
-            </p>
-          </div>
-          <Toggle checked={isPublic} />
-        </button>
-
-        {/* Custom domain — opens a modal for add/manage. */}
-        <DomainTile />
-      </div>
-
       {/* Modal --------------------------------------------------------------- */}
       {editorOpen && (
         <EditModal
-          initial={props.profileData}
+          initial={profileData}
           githubUsername={props.githubUsername}
           onClose={() => setEditorOpen(false)}
-          onSaved={refreshPreview}
+          onSaved={handleSaved}
         />
       )}
     </div>
@@ -259,7 +206,7 @@ function PreviewFrame({
 
       {/* Render area — flex-1 makes the iframe fill the available height on
           desktop without scroll; on mobile it's tall enough to be useful. */}
-      <div className="relative min-h-[260px] flex-1">
+      <div className="relative min-h-[260px] flex-1 overflow-hidden">
         {!loaded && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="flex items-center gap-2 text-[12px] text-white/45">
@@ -276,10 +223,9 @@ function PreviewFrame({
           sandbox="allow-scripts allow-same-origin"
           referrerPolicy="no-referrer"
           onLoad={(e) => {
-            // Force the preview to start at the top of the rendered portfolio.
-            // The engine's intro animations sometimes drag scroll position off
-            // before reveal, leaving the user staring at the middle of the
-            // page on first paint. Same-origin so we can poke contentWindow.
+            // Best-effort reset for the same-origin /sites wrapper. The
+            // generated portfolio itself is sandboxed one frame deeper, so its
+            // runtime must avoid doing anything that causes an initial scroll.
             try {
               e.currentTarget.contentWindow?.scrollTo(0, 0);
             } catch {
@@ -287,7 +233,7 @@ function PreviewFrame({
             }
             onLoad();
           }}
-          className={`h-full w-full bg-[#05060a] transition-opacity duration-300 ${
+          className={`absolute inset-0 h-full w-full bg-[#05060a] transition-opacity duration-300 ${
             loaded ? "opacity-100" : "opacity-0"
           }`}
         />
@@ -299,26 +245,6 @@ function PreviewFrame({
 // ───────────────────────────────────────────────────────────────────────────
 // Subcomponents
 // ───────────────────────────────────────────────────────────────────────────
-
-function Toggle({ checked }: { checked: boolean }) {
-  // Pure presentational chip — the parent tile (a button) owns the click.
-  return (
-    <span
-      aria-hidden
-      className={`relative inline-block h-5 w-9 shrink-0 rounded-full border transition ${
-        checked
-          ? "border-emerald-400/40 bg-emerald-400/25"
-          : "border-white/10 bg-white/[0.04]"
-      }`}
-    >
-      <span
-        className={`absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all ${
-          checked ? "left-[20px]" : "left-0.5"
-        }`}
-      />
-    </span>
-  );
-}
 
 function Arrow() {
   return (
@@ -363,4 +289,3 @@ function Spinner() {
     />
   );
 }
-
