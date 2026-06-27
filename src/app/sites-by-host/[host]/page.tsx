@@ -6,8 +6,8 @@ import {
   buildPortfolioIframe,
   findPortfolioForCustomHost,
 } from "~/server/portfolio/render-iframe";
+import { buildPortfolioMetadata } from "~/server/portfolio/metadata";
 
-// Always read the latest data — engine upgrades apply immediately.
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
@@ -16,22 +16,22 @@ export async function generateMetadata({
   params: Promise<{ host: string }>;
 }): Promise<Metadata> {
   const { host } = await params;
-  const portfolio = await findPortfolioForCustomHost(decodeURIComponent(host));
+  const hostname = decodeURIComponent(host);
+  const portfolio = await findPortfolioForCustomHost(hostname);
   if (!portfolio) return {};
-  return {
-    title: `${portfolio.githubUsername} — PortHub`,
-    robots: portfolio.isPublic ? undefined : { index: false, follow: false },
-  };
+  const proto =
+    (await headers()).get("x-forwarded-proto") ?? "https";
+  return buildPortfolioMetadata({
+    profileData: portfolio.profileData,
+    githubUsername: portfolio.githubUsername,
+    isPublic: portfolio.isPublic,
+    canonicalUrl: `${proto}://${hostname}`,
+  });
 }
 
 /**
  * Public renderer for user-owned hostnames. Middleware forwards any request
  * whose host isn't our root or a `*.<root>` subdomain to this route.
- *
- *   - No matching CustomDomain row    → notFound (looks like a bad domain)
- *   - Domain exists but status != "active"  → notFound (still verifying)
- *   - Portfolio is private             → only the owner sees it
- *   - Otherwise                        → identical render to /sites/[slug]
  */
 export default async function SiteByHostPage({
   params,
