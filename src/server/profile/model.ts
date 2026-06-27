@@ -43,6 +43,29 @@ export const projectSchema = z.object({
   repoUrl: z.string().url(),
 });
 
+// User-curated credentials (certifications / licenses).
+//
+// Default-empty — generated portfolios never come pre-populated; users opt in
+// through the dashboard's Credentials tab. The `issuerKey` is what binds a row
+// to a logo in src/lib/issuers.ts; unknown issuers fall back to initials.
+// Dates are YYYY-MM strings (sortable, simple to type, no timezone foot-guns).
+export const credentialSchema = z.object({
+  title: z.string().min(1).max(140),
+  issuer: z.string().min(1).max(80),
+  issuerKey: z.string().max(40).optional(),
+  issuedAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/, "Use YYYY-MM")
+    .optional(),
+  expiresAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/, "Use YYYY-MM")
+    .optional(),
+  credentialId: z.string().max(80).optional(),
+  url: z.string().url().optional(),
+  skills: z.array(z.string().min(1).max(40)).max(15).optional(),
+});
+
 export const profileDataSchema = z.object({
   identity: z.object({
     name: z.string(),
@@ -54,7 +77,8 @@ export const profileDataSchema = z.object({
   languages: z.array(languageSchema),
   abilities: z.array(abilitySchema).default([]),
   stats: z.array(statSchema),
-  projects: z.array(projectSchema).max(8),
+  projects: z.array(projectSchema).max(9),
+  credentials: z.array(credentialSchema).max(20).default([]),
 });
 
 export type Links = z.infer<typeof linksSchema>;
@@ -62,4 +86,5 @@ export type Language = z.infer<typeof languageSchema>;
 export type Ability = z.infer<typeof abilitySchema>;
 export type Stat = z.infer<typeof statSchema>;
 export type Project = z.infer<typeof projectSchema>;
+export type Credential = z.infer<typeof credentialSchema>;
 export type ProfileData = z.infer<typeof profileDataSchema>;
