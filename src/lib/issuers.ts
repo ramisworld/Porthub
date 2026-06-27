@@ -15,5 +15,6 @@ export type {
   CredentialLogoMark,
   CredentialLogoSlug,
   CredentialLogoTile,
+  CredentialLogoType,
   IssuerMeta,
 } from "./credentialLogos";

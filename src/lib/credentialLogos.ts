@@ -8,11 +8,11 @@
  */
 
 const CREDENTIAL_LOGO_BASE = "/brand/credentials";
-const GENERIC_CERTIFICATE_SRC = `${CREDENTIAL_LOGO_BASE}/fallback-certificate.svg`;
 
 export type CredentialLogoKind = "brand" | "generic";
 export type CredentialLogoMark = "square" | "wide" | "tall";
 export type CredentialLogoTile = "neutral" | "light";
+export type CredentialLogoType = "png" | "svg";
 
 export type IssuerMeta = {
   key: string;
@@ -21,7 +21,7 @@ export type IssuerMeta = {
   color: string;
   src: string;
   alt: string;
-  type: "svg";
+  type: CredentialLogoType;
   logoKind: CredentialLogoKind;
   mark: CredentialLogoMark;
   tile: CredentialLogoTile;
@@ -38,37 +38,19 @@ const brandLogo = (
     alt?: string;
     mark?: CredentialLogoMark;
     tile?: CredentialLogoTile;
+    type?: CredentialLogoType;
   } = {},
 ): IssuerMeta => ({
   key,
   label,
   name: options.name ?? label,
   color,
-  src: `${CREDENTIAL_LOGO_BASE}/${key}.svg`,
+  src: `${CREDENTIAL_LOGO_BASE}/${key}.${options.type ?? "svg"}`,
   alt: options.alt ?? `${label} logo`,
-  type: "svg",
+  type: options.type ?? "svg",
   logoKind: "brand",
   mark: options.mark ?? "square",
   tile: options.tile ?? "neutral",
-  source,
-});
-
-const genericLogo = (
-  key: string,
-  label: string,
-  color: string,
-  source = "Explicit generic credential fallback; exact approved icon asset not committed yet.",
-): IssuerMeta => ({
-  key,
-  label,
-  name: label,
-  color,
-  src: GENERIC_CERTIFICATE_SRC,
-  alt: `${label} credential issuer`,
-  type: "svg",
-  logoKind: "generic",
-  mark: "square",
-  tile: "neutral",
   source,
 });
 
@@ -249,10 +231,13 @@ export const ISSUERS = [
     "#0056D2",
     "https://cdn.simpleicons.org/coursera/0056D2",
   ),
-  genericLogo("pmi", "PMI", "#1F2A5C"),
-  genericLogo("scrum-org", "Scrum.org", "#244270"),
-  genericLogo("deeplearning-ai", "DeepLearning.AI", "#E5484D"),
-  genericLogo("stanford", "Stanford Online", "#8C1515"),
+  brandLogo(
+    "deeplearning-ai",
+    "DeepLearning.AI",
+    "#FF405F",
+    "https://www.deeplearning.ai/dlai/assets/dlai-logo.png",
+    { type: "png" },
+  ),
 ] as const satisfies ReadonlyArray<IssuerMeta>;
 
 export type CredentialLogoSlug = (typeof ISSUERS)[number]["key"];
@@ -334,14 +319,8 @@ const normalizedAliases: Record<string, CredentialLogoSlug> = {
   edx: "edx",
   udacity: "udacity",
   coursera: "coursera",
-  pmi: "pmi",
-  "project management institute": "pmi",
-  "scrum org": "scrum-org",
-  "scrum.org": "scrum-org",
   "deeplearning ai": "deeplearning-ai",
   "deep learning ai": "deeplearning-ai",
-  stanford: "stanford",
-  "stanford online": "stanford",
 };
 
 const prefixAliases: ReadonlyArray<[RegExp, CredentialLogoSlug]> = [
