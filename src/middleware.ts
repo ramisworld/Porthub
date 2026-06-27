@@ -7,6 +7,26 @@ const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
 // Subdomains that should serve the PortHub app, not a portfolio.
 const RESERVED = new Set(["www", "app", "api"]);
 
+/** Map a public portfolio URL path to the internal App Router handler. */
+function portfolioInternalPath(base: string, requestPath: string): string {
+  if (
+    requestPath === "/opengraph-image" ||
+    requestPath.startsWith("/opengraph-image?")
+  ) {
+    return `${base}/opengraph-image`;
+  }
+  if (requestPath === "/icon" || requestPath.startsWith("/icon?")) {
+    return `${base}/icon`;
+  }
+  if (
+    requestPath === "/apple-icon" ||
+    requestPath.startsWith("/apple-icon?")
+  ) {
+    return `${base}/apple-icon`;
+  }
+  return base;
+}
+
 /**
  * Multi-tenant routing (see docs/ARCHITECTURE.md §2).
  *
@@ -40,7 +60,10 @@ export function middleware(req: NextRequest) {
     .replace(/:\d+$/, "");
   if (forwardedHost) {
     const url = req.nextUrl.clone();
-    url.pathname = `/sites-by-host/${encodeURIComponent(forwardedHost)}`;
+    url.pathname = portfolioInternalPath(
+      `/sites-by-host/${encodeURIComponent(forwardedHost)}`,
+      req.nextUrl.pathname,
+    );
     return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   }
 
@@ -67,14 +90,20 @@ export function middleware(req: NextRequest) {
       return NextResponse.next({ request: { headers: requestHeaders } });
     }
     const url = req.nextUrl.clone();
-    url.pathname = `/sites/${subdomain}`;
+    url.pathname = portfolioInternalPath(
+      `/sites/${subdomain}`,
+      req.nextUrl.pathname,
+    );
     return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   }
 
   // Anything else is a user-owned custom domain (or an unmapped host). The DB
   // lookup lives in the route handler so middleware stays Edge-compatible.
   const url = req.nextUrl.clone();
-  url.pathname = `/sites-by-host/${encodeURIComponent(hostNoPort)}`;
+  url.pathname = portfolioInternalPath(
+    `/sites-by-host/${encodeURIComponent(hostNoPort)}`,
+    req.nextUrl.pathname,
+  );
   return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
 }
 
