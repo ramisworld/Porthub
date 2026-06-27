@@ -12,6 +12,7 @@ export const linksSchema = z.object({
   github: z.string().url().optional(),
   site: z.string().url().optional(),
   x: z.string().url().optional(),
+  linkedin: z.string().url().optional(),
   email: z.string().email().optional(),
 });
 
@@ -47,20 +48,11 @@ export const projectSchema = z.object({
 //
 // Default-empty — generated portfolios never come pre-populated; users opt in
 // through the dashboard's Credentials tab. The `issuerKey` is what binds a row
-// to a logo in src/lib/issuers.ts; unknown issuers fall back to initials.
-// Dates are YYYY-MM strings (sortable, simple to type, no timezone foot-guns).
+// to a logo in src/lib/issuers.ts; unknown issuers use a generic credential icon.
 export const credentialSchema = z.object({
   title: z.string().min(1).max(140),
   issuer: z.string().min(1).max(80),
   issuerKey: z.string().max(40).optional(),
-  issuedAt: z
-    .string()
-    .regex(/^\d{4}-\d{2}$/, "Use YYYY-MM")
-    .optional(),
-  expiresAt: z
-    .string()
-    .regex(/^\d{4}-\d{2}$/, "Use YYYY-MM")
-    .optional(),
   credentialId: z.string().max(80).optional(),
   url: z.string().url().optional(),
   skills: z.array(z.string().min(1).max(40)).max(15).optional(),
