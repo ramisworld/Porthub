@@ -105,7 +105,7 @@ export function pickStats(profile: RawProfile): Stat[] {
     profile.user.followers > 0
       ? { value: fmt(profile.user.followers), label: "Followers" }
       : null,
-    years >= 1 ? { value: `${years}+`, label: "Years on GitHub" } : null,
+    years >= 1 ? { value: `${years}+`, label: "Years of experience" } : null,
     langCount > 0 ? { value: String(langCount), label: "Languages" } : null,
   ];
 
