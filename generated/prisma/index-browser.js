@@ -190,6 +190,7 @@ exports.Prisma.CustomDomainScalarFieldEnum = {
   hostname: 'hostname',
   cfHostnameId: 'cfHostnameId',
   railwayDomainId: 'railwayDomainId',
+  cnameHost: 'cnameHost',
   cnameTarget: 'cnameTarget',
   verificationHost: 'verificationHost',
   verificationToken: 'verificationToken',

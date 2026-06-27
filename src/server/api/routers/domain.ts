@@ -128,6 +128,7 @@ export const domainRouter = createTRPCRouter({
           portfolioId: portfolio.id,
           hostname,
           railwayDomainId: rw.id,
+          cnameHost: rw.cnameHost,
           cnameTarget: rw.cnameTarget,
           verificationHost: rw.verificationHost,
           verificationToken: rw.verificationToken,
@@ -193,6 +194,7 @@ export const domainRouter = createTRPCRouter({
       where: { id: row.id },
       data: {
         // Refresh the per-domain DNS values too — Railway can re-issue them.
+        cnameHost: rw.cnameHost ?? row.cnameHost,
         cnameTarget: rw.cnameTarget ?? row.cnameTarget,
         verificationHost: rw.verificationHost ?? row.verificationHost,
         verificationToken: rw.verificationToken ?? row.verificationToken,
@@ -270,29 +272,11 @@ async function ownRowOrThrow(ctx: Ctx) {
   return row;
 }
 
-/** Registrable domain (last two labels). Good enough for the MVP — we don't
- *  handle multi-part public suffixes like .co.uk, but those still work, the
- *  user just sees a slightly longer "Name". */
-function registrableDomain(host: string): string {
-  return host.split(".").slice(-2).join(".");
-}
-
-/** The bare "Name / Host" most DNS UIs want: a fullName relative to its zone.
- *  `_railway-verify.rami.co.nz` in zone `rami.co.nz` → `_railway-verify`.
- *  `rami.co.nz` → `@`. */
-function dnsName(fullName: string, host: string): string {
-  const zone = registrableDomain(host);
-  if (fullName === zone) return "@";
-  if (fullName.endsWith(`.${zone}`)) {
-    return fullName.slice(0, -(zone.length + 1));
-  }
-  return fullName;
-}
-
 /**
  * Decorate a DB row with the records the user must add at their DNS provider:
- * a CNAME (routes traffic) and a verification TXT (proves ownership). Both
- * come straight from what Railway returned when the domain was created.
+ * a CNAME (routes traffic) and a verification TXT (proves ownership). The
+ * "Name / Host" values come straight from Railway (authoritative — it handles
+ * public suffixes like `.co.nz` correctly). An empty CNAME host = apex = "@".
  */
 export type DomainWithInstructions = CustomDomain & {
   instructions: {
@@ -307,18 +291,18 @@ function withInstructions(row: CustomDomain): DomainWithInstructions {
     env.NEXT_PUBLIC_CUSTOM_DOMAIN_CNAME_TARGET ??
     env.NEXT_PUBLIC_ROOT_DOMAIN;
 
+  // Railway returns "" for an apex domain; DNS UIs expect "@".
+  const cnameName = row.cnameHost && row.cnameHost.length > 0 ? row.cnameHost : "@";
+
   const txt =
     row.verificationToken && row.verificationHost
-      ? {
-          name: dnsName(row.verificationHost, row.hostname),
-          value: row.verificationToken,
-        }
+      ? { name: row.verificationHost, value: row.verificationToken }
       : null;
 
   return {
     ...row,
     instructions: {
-      cname: { name: dnsName(row.hostname, row.hostname), value: cnameValue },
+      cname: { name: cnameName, value: cnameValue },
       txt,
     },
   };

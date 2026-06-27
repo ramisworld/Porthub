@@ -26,11 +26,16 @@ const RAILWAY_API = "https://backboard.railway.com/graphql/v2";
 export interface RailwayDomain {
   id: string;
   domain: string;
-  /** CNAME the user must add (host label + target). */
+  /** CNAME the user must add. `cnameHost` is Railway's authoritative host
+   *  label — empty string means the apex ("@"). */
+  cnameHost: string | null;
   cnameTarget: string | null;
-  /** Ownership-proof TXT record. Both null until Railway returns them. */
+  /** Ownership-proof TXT record. `verificationHost` is already zone-relative
+   *  (e.g. "_railway-verify" for an apex). Null until Railway returns them. */
   verificationHost: string | null;
   verificationToken: string | null;
+  /** Whether Railway has verified domain ownership. */
+  verified: boolean;
   /** Raw Railway statuses, cached for the UI. */
   dnsStatus: string | null;
   certificateStatus: string;
@@ -99,6 +104,7 @@ interface RawStatus {
   dnsRecords: RawDnsRecord[];
   certificateStatus: string;
   certificateErrorMessage: string | null;
+  verified: boolean;
   verificationDnsHost: string | null;
   verificationToken: string | null;
 }
@@ -119,6 +125,7 @@ const STATUS_SELECTION = `
     dnsRecords { hostlabel recordType requiredValue currentValue status zone }
     certificateStatus
     certificateErrorMessage
+    verified
     verificationDnsHost
     verificationToken
   }
@@ -165,9 +172,11 @@ function normalize(raw: RawCustomDomain): RailwayDomain {
   return {
     id: raw.id,
     domain: raw.domain,
+    cnameHost: cname?.hostlabel ?? null,
     cnameTarget: cname?.requiredValue ?? null,
     verificationHost: raw.status.verificationDnsHost,
     verificationToken: raw.status.verificationToken,
+    verified: raw.status.verified,
     dnsStatus: cname?.status ?? null,
     certificateStatus: raw.status.certificateStatus,
     certificateErrorMessage: raw.status.certificateErrorMessage,
@@ -242,17 +251,24 @@ export async function railwayDeleteDomain(id: string): Promise<void> {
 }
 
 /**
- * Roll Railway's certificate + DNS state up to our four UI states.
- * Exported for unit testing. The cert leg is authoritative for "live": once
- * Railway has issued a valid cert the domain serves traffic, even when the
- * CNAME shows `REQUIRES_UPDATE` (which happens when the record is proxied).
+ * Roll Railway's certificate + ownership state up to our four UI states.
+ * Exported for unit testing.
+ *
+ * "active" requires BOTH ownership verified AND a fully-issued cert. We match
+ * the cert status exactly (not a substring) because intermediate states like
+ * `CERTIFICATE_STATUS_TYPE_VALIDATING_OWNERSHIP` contain the substring "VALID"
+ * but are NOT live — matching loosely was a real bug.
  */
 export function rollupStatus(input: {
   certificateStatus: string;
   certificateErrorMessage: string | null;
+  verified: boolean;
 }): "pending" | "active" | "action_needed" | "error" {
   const cert = input.certificateStatus.toUpperCase();
-  if (cert.includes("VALID") || cert.includes("ISSUED")) return "active";
+  const issued =
+    cert === "CERTIFICATE_STATUS_TYPE_VALID" ||
+    cert === "CERTIFICATE_STATUS_TYPE_ISSUED";
+  if (input.verified && issued) return "active";
   if (cert.includes("ERROR") || cert.includes("FAIL")) {
     return input.certificateErrorMessage ? "action_needed" : "error";
   }

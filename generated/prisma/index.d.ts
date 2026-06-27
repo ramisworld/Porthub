@@ -7247,6 +7247,7 @@ export namespace Prisma {
     hostname: string | null
     cfHostnameId: string | null
     railwayDomainId: string | null
+    cnameHost: string | null
     cnameTarget: string | null
     verificationHost: string | null
     verificationToken: string | null
@@ -7266,6 +7267,7 @@ export namespace Prisma {
     hostname: string | null
     cfHostnameId: string | null
     railwayDomainId: string | null
+    cnameHost: string | null
     cnameTarget: string | null
     verificationHost: string | null
     verificationToken: string | null
@@ -7285,6 +7287,7 @@ export namespace Prisma {
     hostname: number
     cfHostnameId: number
     railwayDomainId: number
+    cnameHost: number
     cnameTarget: number
     verificationHost: number
     verificationToken: number
@@ -7306,6 +7309,7 @@ export namespace Prisma {
     hostname?: true
     cfHostnameId?: true
     railwayDomainId?: true
+    cnameHost?: true
     cnameTarget?: true
     verificationHost?: true
     verificationToken?: true
@@ -7325,6 +7329,7 @@ export namespace Prisma {
     hostname?: true
     cfHostnameId?: true
     railwayDomainId?: true
+    cnameHost?: true
     cnameTarget?: true
     verificationHost?: true
     verificationToken?: true
@@ -7344,6 +7349,7 @@ export namespace Prisma {
     hostname?: true
     cfHostnameId?: true
     railwayDomainId?: true
+    cnameHost?: true
     cnameTarget?: true
     verificationHost?: true
     verificationToken?: true
@@ -7436,6 +7442,7 @@ export namespace Prisma {
     hostname: string
     cfHostnameId: string | null
     railwayDomainId: string | null
+    cnameHost: string | null
     cnameTarget: string | null
     verificationHost: string | null
     verificationToken: string | null
@@ -7472,6 +7479,7 @@ export namespace Prisma {
     hostname?: boolean
     cfHostnameId?: boolean
     railwayDomainId?: boolean
+    cnameHost?: boolean
     cnameTarget?: boolean
     verificationHost?: boolean
     verificationToken?: boolean
@@ -7492,6 +7500,7 @@ export namespace Prisma {
     hostname?: boolean
     cfHostnameId?: boolean
     railwayDomainId?: boolean
+    cnameHost?: boolean
     cnameTarget?: boolean
     verificationHost?: boolean
     verificationToken?: boolean
@@ -7512,6 +7521,7 @@ export namespace Prisma {
     hostname?: boolean
     cfHostnameId?: boolean
     railwayDomainId?: boolean
+    cnameHost?: boolean
     cnameTarget?: boolean
     verificationHost?: boolean
     verificationToken?: boolean
@@ -7532,6 +7542,7 @@ export namespace Prisma {
     hostname?: boolean
     cfHostnameId?: boolean
     railwayDomainId?: boolean
+    cnameHost?: boolean
     cnameTarget?: boolean
     verificationHost?: boolean
     verificationToken?: boolean
@@ -7545,7 +7556,7 @@ export namespace Prisma {
     updatedAt?: boolean
   }
 
-  export type CustomDomainOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "portfolioId" | "hostname" | "cfHostnameId" | "railwayDomainId" | "cnameTarget" | "verificationHost" | "verificationToken" | "status" | "ownershipStatus" | "sslStatus" | "errorReason" | "lastCheckedAt" | "activatedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["customDomain"]>
+  export type CustomDomainOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "portfolioId" | "hostname" | "cfHostnameId" | "railwayDomainId" | "cnameHost" | "cnameTarget" | "verificationHost" | "verificationToken" | "status" | "ownershipStatus" | "sslStatus" | "errorReason" | "lastCheckedAt" | "activatedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["customDomain"]>
   export type CustomDomainInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     portfolio?: boolean | PortfolioDefaultArgs<ExtArgs>
   }
@@ -7567,6 +7578,7 @@ export namespace Prisma {
       hostname: string
       cfHostnameId: string | null
       railwayDomainId: string | null
+      cnameHost: string | null
       cnameTarget: string | null
       verificationHost: string | null
       verificationToken: string | null
@@ -8007,6 +8019,7 @@ export namespace Prisma {
     readonly hostname: FieldRef<"CustomDomain", 'String'>
     readonly cfHostnameId: FieldRef<"CustomDomain", 'String'>
     readonly railwayDomainId: FieldRef<"CustomDomain", 'String'>
+    readonly cnameHost: FieldRef<"CustomDomain", 'String'>
     readonly cnameTarget: FieldRef<"CustomDomain", 'String'>
     readonly verificationHost: FieldRef<"CustomDomain", 'String'>
     readonly verificationToken: FieldRef<"CustomDomain", 'String'>
@@ -10553,6 +10566,7 @@ export namespace Prisma {
     hostname: 'hostname',
     cfHostnameId: 'cfHostnameId',
     railwayDomainId: 'railwayDomainId',
+    cnameHost: 'cnameHost',
     cnameTarget: 'cnameTarget',
     verificationHost: 'verificationHost',
     verificationToken: 'verificationToken',
@@ -11133,6 +11147,7 @@ export namespace Prisma {
     hostname?: StringFilter<"CustomDomain"> | string
     cfHostnameId?: StringNullableFilter<"CustomDomain"> | string | null
     railwayDomainId?: StringNullableFilter<"CustomDomain"> | string | null
+    cnameHost?: StringNullableFilter<"CustomDomain"> | string | null
     cnameTarget?: StringNullableFilter<"CustomDomain"> | string | null
     verificationHost?: StringNullableFilter<"CustomDomain"> | string | null
     verificationToken?: StringNullableFilter<"CustomDomain"> | string | null
@@ -11153,6 +11168,7 @@ export namespace Prisma {
     hostname?: SortOrder
     cfHostnameId?: SortOrderInput | SortOrder
     railwayDomainId?: SortOrderInput | SortOrder
+    cnameHost?: SortOrderInput | SortOrder
     cnameTarget?: SortOrderInput | SortOrder
     verificationHost?: SortOrderInput | SortOrder
     verificationToken?: SortOrderInput | SortOrder
@@ -11176,6 +11192,7 @@ export namespace Prisma {
     AND?: CustomDomainWhereInput | CustomDomainWhereInput[]
     OR?: CustomDomainWhereInput[]
     NOT?: CustomDomainWhereInput | CustomDomainWhereInput[]
+    cnameHost?: StringNullableFilter<"CustomDomain"> | string | null
     cnameTarget?: StringNullableFilter<"CustomDomain"> | string | null
     verificationHost?: StringNullableFilter<"CustomDomain"> | string | null
     verificationToken?: StringNullableFilter<"CustomDomain"> | string | null
@@ -11196,6 +11213,7 @@ export namespace Prisma {
     hostname?: SortOrder
     cfHostnameId?: SortOrderInput | SortOrder
     railwayDomainId?: SortOrderInput | SortOrder
+    cnameHost?: SortOrderInput | SortOrder
     cnameTarget?: SortOrderInput | SortOrder
     verificationHost?: SortOrderInput | SortOrder
     verificationToken?: SortOrderInput | SortOrder
@@ -11221,6 +11239,7 @@ export namespace Prisma {
     hostname?: StringWithAggregatesFilter<"CustomDomain"> | string
     cfHostnameId?: StringNullableWithAggregatesFilter<"CustomDomain"> | string | null
     railwayDomainId?: StringNullableWithAggregatesFilter<"CustomDomain"> | string | null
+    cnameHost?: StringNullableWithAggregatesFilter<"CustomDomain"> | string | null
     cnameTarget?: StringNullableWithAggregatesFilter<"CustomDomain"> | string | null
     verificationHost?: StringNullableWithAggregatesFilter<"CustomDomain"> | string | null
     verificationToken?: StringNullableWithAggregatesFilter<"CustomDomain"> | string | null
@@ -11794,6 +11813,7 @@ export namespace Prisma {
     hostname: string
     cfHostnameId?: string | null
     railwayDomainId?: string | null
+    cnameHost?: string | null
     cnameTarget?: string | null
     verificationHost?: string | null
     verificationToken?: string | null
@@ -11814,6 +11834,7 @@ export namespace Prisma {
     hostname: string
     cfHostnameId?: string | null
     railwayDomainId?: string | null
+    cnameHost?: string | null
     cnameTarget?: string | null
     verificationHost?: string | null
     verificationToken?: string | null
@@ -11832,6 +11853,7 @@ export namespace Prisma {
     hostname?: StringFieldUpdateOperationsInput | string
     cfHostnameId?: NullableStringFieldUpdateOperationsInput | string | null
     railwayDomainId?: NullableStringFieldUpdateOperationsInput | string | null
+    cnameHost?: NullableStringFieldUpdateOperationsInput | string | null
     cnameTarget?: NullableStringFieldUpdateOperationsInput | string | null
     verificationHost?: NullableStringFieldUpdateOperationsInput | string | null
     verificationToken?: NullableStringFieldUpdateOperationsInput | string | null
@@ -11852,6 +11874,7 @@ export namespace Prisma {
     hostname?: StringFieldUpdateOperationsInput | string
     cfHostnameId?: NullableStringFieldUpdateOperationsInput | string | null
     railwayDomainId?: NullableStringFieldUpdateOperationsInput | string | null
+    cnameHost?: NullableStringFieldUpdateOperationsInput | string | null
     cnameTarget?: NullableStringFieldUpdateOperationsInput | string | null
     verificationHost?: NullableStringFieldUpdateOperationsInput | string | null
     verificationToken?: NullableStringFieldUpdateOperationsInput | string | null
@@ -11871,6 +11894,7 @@ export namespace Prisma {
     hostname: string
     cfHostnameId?: string | null
     railwayDomainId?: string | null
+    cnameHost?: string | null
     cnameTarget?: string | null
     verificationHost?: string | null
     verificationToken?: string | null
@@ -11889,6 +11913,7 @@ export namespace Prisma {
     hostname?: StringFieldUpdateOperationsInput | string
     cfHostnameId?: NullableStringFieldUpdateOperationsInput | string | null
     railwayDomainId?: NullableStringFieldUpdateOperationsInput | string | null
+    cnameHost?: NullableStringFieldUpdateOperationsInput | string | null
     cnameTarget?: NullableStringFieldUpdateOperationsInput | string | null
     verificationHost?: NullableStringFieldUpdateOperationsInput | string | null
     verificationToken?: NullableStringFieldUpdateOperationsInput | string | null
@@ -11908,6 +11933,7 @@ export namespace Prisma {
     hostname?: StringFieldUpdateOperationsInput | string
     cfHostnameId?: NullableStringFieldUpdateOperationsInput | string | null
     railwayDomainId?: NullableStringFieldUpdateOperationsInput | string | null
+    cnameHost?: NullableStringFieldUpdateOperationsInput | string | null
     cnameTarget?: NullableStringFieldUpdateOperationsInput | string | null
     verificationHost?: NullableStringFieldUpdateOperationsInput | string | null
     verificationToken?: NullableStringFieldUpdateOperationsInput | string | null
@@ -12536,6 +12562,7 @@ export namespace Prisma {
     hostname?: SortOrder
     cfHostnameId?: SortOrder
     railwayDomainId?: SortOrder
+    cnameHost?: SortOrder
     cnameTarget?: SortOrder
     verificationHost?: SortOrder
     verificationToken?: SortOrder
@@ -12555,6 +12582,7 @@ export namespace Prisma {
     hostname?: SortOrder
     cfHostnameId?: SortOrder
     railwayDomainId?: SortOrder
+    cnameHost?: SortOrder
     cnameTarget?: SortOrder
     verificationHost?: SortOrder
     verificationToken?: SortOrder
@@ -12574,6 +12602,7 @@ export namespace Prisma {
     hostname?: SortOrder
     cfHostnameId?: SortOrder
     railwayDomainId?: SortOrder
+    cnameHost?: SortOrder
     cnameTarget?: SortOrder
     verificationHost?: SortOrder
     verificationToken?: SortOrder
@@ -13568,6 +13597,7 @@ export namespace Prisma {
     hostname: string
     cfHostnameId?: string | null
     railwayDomainId?: string | null
+    cnameHost?: string | null
     cnameTarget?: string | null
     verificationHost?: string | null
     verificationToken?: string | null
@@ -13586,6 +13616,7 @@ export namespace Prisma {
     hostname: string
     cfHostnameId?: string | null
     railwayDomainId?: string | null
+    cnameHost?: string | null
     cnameTarget?: string | null
     verificationHost?: string | null
     verificationToken?: string | null
@@ -13657,6 +13688,7 @@ export namespace Prisma {
     hostname?: StringFieldUpdateOperationsInput | string
     cfHostnameId?: NullableStringFieldUpdateOperationsInput | string | null
     railwayDomainId?: NullableStringFieldUpdateOperationsInput | string | null
+    cnameHost?: NullableStringFieldUpdateOperationsInput | string | null
     cnameTarget?: NullableStringFieldUpdateOperationsInput | string | null
     verificationHost?: NullableStringFieldUpdateOperationsInput | string | null
     verificationToken?: NullableStringFieldUpdateOperationsInput | string | null
@@ -13675,6 +13707,7 @@ export namespace Prisma {
     hostname?: StringFieldUpdateOperationsInput | string
     cfHostnameId?: NullableStringFieldUpdateOperationsInput | string | null
     railwayDomainId?: NullableStringFieldUpdateOperationsInput | string | null
+    cnameHost?: NullableStringFieldUpdateOperationsInput | string | null
     cnameTarget?: NullableStringFieldUpdateOperationsInput | string | null
     verificationHost?: NullableStringFieldUpdateOperationsInput | string | null
     verificationToken?: NullableStringFieldUpdateOperationsInput | string | null
