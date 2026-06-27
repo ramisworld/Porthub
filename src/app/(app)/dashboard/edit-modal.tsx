@@ -4,10 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   profileDataSchema,
   type Ability,
+  type Credential,
   type ProfileData,
   type Project,
   type Stat,
 } from "~/server/profile/model";
+import { ISSUERS, ISSUER_BY_KEY } from "~/lib/issuers";
 import { api } from "~/trpc/react";
 
 /**
@@ -32,7 +34,8 @@ export function EditModal({
   initial: ProfileData;
   githubUsername: string;
   onClose: () => void;
-  onSaved: () => void;
+  /** Called after a successful save with the freshly-persisted payload. */
+  onSaved: (saved: ProfileData) => void;
 }) {
   const [data, setData] = useState<ProfileData>(() => structuredClone(initial));
   const [baseline, setBaseline] = useState<ProfileData>(() =>
@@ -51,16 +54,20 @@ export function EditModal({
   );
 
   const update = api.portfolio.updateProfileData.useMutation({
-    onSuccess: () => {
-      setBaseline(structuredClone(data)); // new clean baseline
-      setSaved(true);
-      window.clearTimeout(savedTimer.current);
-      savedTimer.current = window.setTimeout(() => setSaved(false), 2400);
-      setConfirmClose(false);
-      onSaved();
-    },
     onError: (e) => setError(e.message),
   });
+
+  // Centralized "save succeeded" handler. Takes the validated ProfileData
+  // (output of zod parse, defaults applied) so callers don't pay the cost
+  // of re-narrowing the input-shape variables.
+  const handleSaveSuccess = (next: ProfileData) => {
+    setBaseline(structuredClone(next));
+    setSaved(true);
+    window.clearTimeout(savedTimer.current);
+    savedTimer.current = window.setTimeout(() => setSaved(false), 2400);
+    setConfirmClose(false);
+    onSaved(next);
+  };
 
   const save = (): void => {
     setError(null);
@@ -90,6 +97,17 @@ export function EditModal({
         ...p,
         demoUrl: blankToUndef(p.demoUrl),
       })),
+      credentials: (data.credentials ?? []).map((c) => ({
+        ...c,
+        issuerKey: blankToUndef(c.issuerKey),
+        issuedAt: blankToUndef(c.issuedAt),
+        expiresAt: blankToUndef(c.expiresAt),
+        credentialId: blankToUndef(c.credentialId),
+        url: blankToUndef(c.url),
+        skills: c.skills?.length
+          ? c.skills.map((s) => s.trim()).filter(Boolean)
+          : undefined,
+      })),
     };
 
     const parsed = profileDataSchema.safeParse(payload);
@@ -101,7 +119,11 @@ export function EditModal({
       return;
     }
 
-    update.mutate({ profileData: parsed.data });
+    const next = parsed.data;
+    update.mutate(
+      { profileData: next },
+      { onSuccess: () => handleSaveSuccess(next) },
+    );
   };
 
   // ✕ click: clean → close immediately; dirty → ask first.
@@ -244,6 +266,12 @@ export function EditModal({
                 onChange={(projects) => setData({ ...data, projects })}
               />
             )}
+            {tab === "credentials" && (
+              <CredentialsSection
+                items={data.credentials ?? []}
+                onChange={(credentials) => setData({ ...data, credentials })}
+              />
+            )}
           </div>
         </div>
 
@@ -350,12 +378,18 @@ export function EditModal({
 // Tabs
 // ───────────────────────────────────────────────────────────────────────────
 
-type TabId = "identity" | "abilities" | "stats" | "projects";
+type TabId =
+  | "identity"
+  | "abilities"
+  | "stats"
+  | "projects"
+  | "credentials";
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "identity", label: "Identity" },
   { id: "abilities", label: "Abilities" },
   { id: "stats", label: "Stats" },
   { id: "projects", label: "Projects" },
+  { id: "credentials", label: "Credentials" },
 ];
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -570,7 +604,7 @@ function ProjectsSection({
   onChange: (next: Project[]) => void;
 }) {
   return (
-    <SectionShell title="Projects" subtitle="Up to 8 — reorder with the arrows">
+    <SectionShell title="Projects" subtitle="Up to 9 — reorder with the arrows">
       <ul className="space-y-3">
         {items.map((p, i) => (
           <li
@@ -672,12 +706,521 @@ function ProjectsSection({
             { name: "", blurb: "", tech: [], repoUrl: "https://github.com/" },
           ])
         }
-        disabled={items.length >= 8}
+        disabled={items.length >= 9}
       >
-        + Add project ({items.length}/8)
+        + Add project ({items.length}/9)
       </AddButton>
     </SectionShell>
   );
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Credentials
+// ───────────────────────────────────────────────────────────────────────────
+
+function CredentialsSection({
+  items,
+  onChange,
+}: {
+  items: Credential[];
+  onChange: (next: Credential[]) => void;
+}) {
+  return (
+    <SectionShell
+      title="Credentials"
+      subtitle="Certifications & licenses — up to 20, newest shown first"
+    >
+      {items.length === 0 && (
+        <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-6 text-center">
+          <p className="text-[13px] text-white/65">
+            No credentials yet. Add one to display it in a dedicated section
+            on your portfolio.
+          </p>
+          <p className="mt-1 text-[11.5px] text-white/40">
+            Choose a known issuer to get its logo, or pick{" "}
+            <em>Other</em> to enter a custom name.
+          </p>
+        </div>
+      )}
+
+      <ul className="space-y-3">
+        {items.map((c, i) => (
+          <CredentialCardEditor
+            key={i}
+            value={c}
+            index={i}
+            total={items.length}
+            onChange={(next) => {
+              const arr = [...items];
+              arr[i] = next;
+              onChange(arr);
+            }}
+            onRemove={() => onChange(items.filter((_, j) => j !== i))}
+            onMove={(dir) => onChange(move(items, i, dir))}
+          />
+        ))}
+      </ul>
+
+      <AddButton
+        onClick={() =>
+          onChange([
+            ...items,
+            {
+              title: "",
+              issuer: "",
+              issuerKey: undefined,
+              issuedAt: undefined,
+              expiresAt: undefined,
+              credentialId: undefined,
+              url: undefined,
+              skills: undefined,
+            },
+          ])
+        }
+        disabled={items.length >= 20}
+      >
+        + Add credential ({items.length}/20)
+      </AddButton>
+    </SectionShell>
+  );
+}
+
+// Tri-state for the issuer field UX:
+//   "unset"  – nothing chosen yet (default for new rows; placeholder shown)
+//   "known"  – a registered issuer was picked (logo + locked label)
+//   "other"  – user picked "Other…" and types a free-form issuer name
+type IssuerMode = "unset" | "known" | "other";
+
+function deriveIssuerMode(value: Credential): IssuerMode {
+  if (value.issuerKey && ISSUER_BY_KEY[value.issuerKey]) return "known";
+  if (value.issuer && value.issuer.trim().length > 0) return "other";
+  return "unset";
+}
+
+function CredentialCardEditor({
+  value,
+  index,
+  total,
+  onChange,
+  onRemove,
+  onMove,
+}: {
+  value: Credential;
+  index: number;
+  total: number;
+  onChange: (next: Credential) => void;
+  onRemove: () => void;
+  onMove: (dir: -1 | 1) => void;
+}) {
+  const [noExpiry, setNoExpiry] = useState<boolean>(() => !value.expiresAt);
+  const [skillsInput, setSkillsInput] = useState<string>(() =>
+    (value.skills ?? []).join(", "),
+  );
+  // Mode is derived from the credential, but kept in local state so picking
+  // "Other…" sticks even before the user types anything (a freshly-clicked
+  // "Other…" has empty issuer text, which would otherwise fall back to
+  // "unset" via deriveIssuerMode).
+  const [mode, setMode] = useState<IssuerMode>(() => deriveIssuerMode(value));
+
+  // Whenever the parent reassigns this credential (e.g. after reorder) keep
+  // local state in sync — but don't clobber a sticky "other" mode if the
+  // user picked it before typing.
+  useEffect(() => {
+    setNoExpiry(!value.expiresAt);
+    setSkillsInput((value.skills ?? []).join(", "));
+    setMode((current) => {
+      const derived = deriveIssuerMode(value);
+      // A "sticky" Other selection (no key yet, mode already other) wins so
+      // the dropdown doesn't snap back to "Choose issuer…" while typing.
+      if (current === "other" && !value.issuerKey) return "other";
+      return derived;
+    });
+  }, [value]);
+
+  const meta = value.issuerKey ? ISSUER_BY_KEY[value.issuerKey] : undefined;
+
+  return (
+    <li className="space-y-3 rounded-xl bg-black/20 p-3 ring-1 ring-white/[0.04]">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {meta ? (
+            <IssuerLogo svg={meta.svg} size={16} />
+          ) : (
+            <span
+              aria-hidden
+              className="inline-block h-2 w-2 shrink-0 rounded-full bg-white/30"
+            />
+          )}
+          <p className="truncate font-mono text-[11px] tracking-[0.14em] text-white/40 uppercase">
+            Credential {index + 1}
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          <ReorderControls index={index} total={total} onMove={onMove} />
+          <RemoveButton onClick={onRemove} />
+        </div>
+      </div>
+
+      <Field label="Title">
+        <TextInput
+          value={value.title}
+          onChange={(v) => onChange({ ...value, title: v })}
+          maxLength={140}
+          placeholder="Microsoft Certified: Azure AI Engineer Associate"
+        />
+      </Field>
+
+      <Field label="Issuer">
+        <IssuerCombobox
+          mode={mode}
+          selectedKey={value.issuerKey ?? ""}
+          freeformText={value.issuer}
+          onPickKnown={(key, label) => {
+            setMode("known");
+            onChange({ ...value, issuerKey: key, issuer: label });
+          }}
+          onPickOther={() => {
+            setMode("other");
+            // Clear the bound issuerKey; keep whatever the user already typed
+            // as the freeform issuer label.
+            onChange({ ...value, issuerKey: undefined });
+          }}
+          onClear={() => {
+            setMode("unset");
+            onChange({ ...value, issuerKey: undefined, issuer: "" });
+          }}
+        />
+        {mode === "other" && (
+          <input
+            value={value.issuer}
+            onChange={(e) => onChange({ ...value, issuer: e.target.value })}
+            maxLength={80}
+            placeholder="Issuer name (e.g. Acme Institute)"
+            autoFocus
+            className="mt-2 h-9 w-full rounded-lg border border-white/10 bg-black/30 px-2.5 text-[13.5px] outline-none placeholder:text-white/25 focus:border-indigo-400/40"
+          />
+        )}
+      </Field>
+
+      <Row>
+        <Field label="Issued">
+          <MonthInput
+            value={value.issuedAt ?? ""}
+            onChange={(v) => onChange({ ...value, issuedAt: v })}
+            max={isoYearMonthNow()}
+          />
+        </Field>
+        <Field
+          label="Expires"
+          hint={
+            <span className="inline-flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={noExpiry}
+                onChange={(e) => {
+                  setNoExpiry(e.target.checked);
+                  if (e.target.checked) {
+                    onChange({ ...value, expiresAt: undefined });
+                  }
+                }}
+                className="h-3 w-3 accent-white"
+              />
+              <span>No expiry</span>
+            </span>
+          }
+        >
+          <MonthInput
+            value={value.expiresAt ?? ""}
+            onChange={(v) => onChange({ ...value, expiresAt: v })}
+            disabled={noExpiry}
+            min={value.issuedAt}
+          />
+        </Field>
+      </Row>
+
+      <Row>
+        <Field label="Credential ID" hint="Optional">
+          <TextInput
+            value={value.credentialId ?? ""}
+            onChange={(v) => onChange({ ...value, credentialId: v })}
+            maxLength={80}
+            placeholder="FA88A4F6EA27B4CD"
+          />
+        </Field>
+        <Field label="Verify URL" hint="Optional">
+          <TextInput
+            value={value.url ?? ""}
+            onChange={(v) => onChange({ ...value, url: v })}
+            inputType="url"
+            placeholder="https://learn.microsoft.com/…"
+          />
+        </Field>
+      </Row>
+
+      <Field label="Skills" hint="Comma separated, max 15">
+        <TextInput
+          value={skillsInput}
+          onChange={(v) => {
+            setSkillsInput(v);
+            const skills = v
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .slice(0, 15);
+            onChange({
+              ...value,
+              skills: skills.length ? skills : undefined,
+            });
+          }}
+          placeholder="Azure AI, Cognitive Services, Python"
+        />
+      </Field>
+    </li>
+  );
+}
+
+/** Renders an issuer's icon-only SVG safely from the registry. */
+function IssuerLogo({ svg, size = 18 }: { svg: string; size?: number }) {
+  return (
+    <span
+      aria-hidden
+      className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-white/[0.04] ring-1 ring-white/[0.06]"
+      style={{ width: size, height: size }}
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  );
+}
+
+/**
+ * IssuerCombobox — searchable dropdown of known issuers.
+ *
+ * • Default state shows "Choose issuer…" — no implicit "Other" selection.
+ * • Each row renders the issuer's real icon-only logo (no color swatch).
+ * • A divider + "Other (custom issuer)" row at the bottom switches the
+ *   parent into freeform-text mode; the text input is rendered by the
+ *   caller right below this control.
+ * • A small ✕ on the trigger lets the user clear the picked issuer.
+ */
+function IssuerCombobox({
+  mode,
+  selectedKey,
+  freeformText,
+  onPickKnown,
+  onPickOther,
+  onClear,
+}: {
+  mode: IssuerMode;
+  selectedKey: string;
+  freeformText: string;
+  onPickKnown: (key: string, label: string) => void;
+  onPickOther: () => void;
+  onClear: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  const selected = selectedKey ? ISSUER_BY_KEY[selectedKey] : undefined;
+
+  // Display logic for the trigger.
+  let triggerLabel: string;
+  let triggerLogo: React.ReactNode;
+  let labelTone = "text-white/85";
+  if (mode === "known" && selected) {
+    triggerLabel = selected.label;
+    triggerLogo = <IssuerLogo svg={selected.svg} size={18} />;
+  } else if (mode === "other") {
+    triggerLabel = freeformText.trim() || "Other…";
+    triggerLogo = (
+      <span
+        aria-hidden
+        className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border border-dashed border-white/25 text-[10px] text-white/55"
+      >
+        +
+      </span>
+    );
+  } else {
+    triggerLabel = "Choose issuer…";
+    labelTone = "text-white/40";
+    triggerLogo = (
+      <span
+        aria-hidden
+        className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] bg-white/[0.03] ring-1 ring-white/[0.05] text-[10px] text-white/30"
+      >
+        ?
+      </span>
+    );
+  }
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return ISSUERS;
+    return ISSUERS.filter((i) => i.label.toLowerCase().includes(q));
+  }, [query]);
+
+  // Outside-click + Escape close.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  // Reset the search query whenever the menu reopens, so the next time the
+  // user opens it they see the full list instead of the last filter.
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex h-9 w-full items-center gap-2 rounded-lg border border-white/10 bg-black/30 px-2.5 text-left text-[13.5px] outline-none transition hover:border-white/15 focus:border-indigo-400/40"
+      >
+        {triggerLogo}
+        <span className={`min-w-0 flex-1 truncate ${labelTone}`}>
+          {triggerLabel}
+        </span>
+        {mode !== "unset" && (
+          <span
+            role="button"
+            tabIndex={0}
+            aria-label="Clear issuer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear();
+              setOpen(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                onClear();
+                setOpen(false);
+              }
+            }}
+            className="flex h-5 w-5 items-center justify-center rounded text-[12px] text-white/40 transition hover:bg-white/[0.06] hover:text-white"
+          >
+            ×
+          </span>
+        )}
+        <span
+          aria-hidden
+          className={`text-[10px] text-white/40 transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+        >
+          ▾
+        </span>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute top-full left-0 z-20 mt-1 w-full overflow-hidden rounded-lg border border-white/10 bg-[#0e1014]/95 shadow-2xl backdrop-blur-xl"
+        >
+          <div className="p-2">
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search issuers…"
+              className="h-8 w-full rounded-md border border-white/10 bg-black/40 px-2 text-[12.5px] outline-none placeholder:text-white/30 focus:border-indigo-400/40"
+            />
+          </div>
+          <ul className="max-h-64 overflow-y-auto pb-1">
+            {filtered.map((i) => (
+              <li key={i.key}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onPickKnown(i.key, i.label);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] transition hover:bg-white/[0.06] ${
+                    selectedKey === i.key
+                      ? "bg-white/[0.05] text-white"
+                      : "text-white/80"
+                  }`}
+                >
+                  <IssuerLogo svg={i.svg} size={20} />
+                  <span className="truncate">{i.label}</span>
+                </button>
+              </li>
+            ))}
+            {filtered.length === 0 && (
+              <li className="px-3 py-2 text-[12px] text-white/40">No matches.</li>
+            )}
+            <li className="mt-1 border-t border-white/[0.05]">
+              <button
+                type="button"
+                onClick={() => {
+                  onPickOther();
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12.5px] transition hover:bg-white/[0.06] ${
+                  mode === "other" ? "text-white" : "text-white/55 hover:text-white"
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-[5px] border border-dashed border-white/25 text-[11px] text-white/55"
+                >
+                  +
+                </span>
+                Other (custom issuer)
+              </button>
+            </li>
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Native month input — value is `YYYY-MM`. */
+function MonthInput({
+  value,
+  onChange,
+  disabled,
+  min,
+  max,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  min?: string;
+  max?: string;
+}) {
+  return (
+    <input
+      type="month"
+      value={value}
+      min={min}
+      max={max}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      className="h-9 w-full rounded-lg border border-white/10 bg-black/30 px-2.5 text-[13.5px] outline-none focus:border-indigo-400/40 disabled:cursor-not-allowed disabled:opacity-40"
+    />
+  );
+}
+
+function isoYearMonthNow(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -718,7 +1261,7 @@ function Field({
   children,
 }: {
   label: string;
-  hint?: string;
+  hint?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
