@@ -144,7 +144,17 @@ export const auth = betterAuth({
   session: {
     expiresIn: 60 * 60 * 24 * 30, // 30 days
     updateAge: 60 * 60 * 24, // refresh sliding window daily
-    cookieCache: { enabled: true, maxAge: 60 * 5 },
+    // cookieCache intentionally OFF.
+    //
+    // With it on, BetterAuth serves session reads from a signed cookie for
+    // up to 5 min without hitting the DB. That's a few ms faster per request
+    // but means a deleted `User` row stays "live" from the server's POV until
+    // the cache expires — and any FK that joins to User (GenerationLock,
+    // Portfolio.ownerId, …) then explodes with P2003 on the next mutation.
+    // The perf win is negligible against a local Postgres; the foot-gun is
+    // not. If we ever turn this back on, every mutation site that FKs to
+    // User must independently verify the user still exists.
+    cookieCache: { enabled: false },
   },
 
   advanced: {
