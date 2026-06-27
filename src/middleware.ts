@@ -13,8 +13,13 @@ const RESERVED = new Set(["www", "app", "api"]);
  *   <root>              → marketing/app
  *   <reserved>.<root>   → app
  *   <slug>.<root>       → /sites/<slug>          (the URL bar keeps the host)
- *   <custom>            → /sites-by-host/<host>  (Cloudflare for SaaS forwards
- *                                                 user-owned domains here)
+ *   <custom>            → /sites-by-host/<host>  (user-owned domains)
+ *
+ * Custom domains arrive one of two ways:
+ *   • Direct (e.g. on Railway): the Host header IS the custom domain.
+ *   • Via the Cloudflare Worker bridge: the request hits us as the app's own
+ *     host, but carries the real domain in `x-porthub-host`. We honor that
+ *     header first so unlimited Cloudflare-for-SaaS domains route correctly.
  */
 export function middleware(req: NextRequest) {
   // Pass the current pathname to server components via header (Next 15 doesn't
@@ -26,6 +31,17 @@ export function middleware(req: NextRequest) {
   // subdomains and custom domains) — never rewrite it to a /sites route.
   if (req.nextUrl.pathname.startsWith("/engine/")) {
     return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
+  // Worker bridge: the original custom domain is carried out-of-band. This
+  // takes priority over the Host header (which is our own upstream host here).
+  const forwardedHost = (req.headers.get("x-porthub-host") ?? "")
+    .toLowerCase()
+    .replace(/:\d+$/, "");
+  if (forwardedHost) {
+    const url = req.nextUrl.clone();
+    url.pathname = `/sites-by-host/${encodeURIComponent(forwardedHost)}`;
+    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   }
 
   // Strip any :port for matching — production hosts never include one and we

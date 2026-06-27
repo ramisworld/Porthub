@@ -269,7 +269,7 @@ function RecordsStep({
               title: "Connection error",
               body:
                 domain.errorReason ??
-                "Railway reported an error. Try removing the domain and re-adding it.",
+                "Cloudflare reported an error. Try removing the domain and re-adding it.",
             }
           : {
               tone: "pending" as const,
@@ -317,15 +317,17 @@ function RecordsStep({
 
         {!txt && (
           <p className="mt-2 text-[11.5px] text-white/40">
-            Add the CNAME — we&apos;ll fetch the verification record from
-            Railway automatically.
+            Add the CNAME first — the verification record appears here
+            automatically once your domain is detected.
           </p>
         )}
 
         <p className="mt-3 text-[11.5px] text-white/40">
-          On Cloudflare, set the CNAME to{" "}
-          <span className="text-white/65">DNS only</span> (grey cloud) so the
-          certificate can be issued.
+          Using a <span className="text-white/65">root domain</span> (like
+          your.com)? Some providers can&apos;t point it with a CNAME — use a
+          subdomain such as{" "}
+          <span className="font-mono text-white/65">me.your.com</span>, or an
+          ALIAS/ANAME record if your provider supports it.
         </p>
       </div>
 
@@ -404,16 +406,16 @@ function relativeTime(d: Date): string {
 }
 
 function explainPending(domain: DomainRow): string {
-  // `ownershipStatus` caches Railway's CNAME DNS status; `sslStatus` the cert.
-  const dns = (domain.ownershipStatus ?? "").toUpperCase();
-  const cert = (domain.sslStatus ?? "").toUpperCase();
-  if (dns.includes("REQUIRES_UPDATE") || dns.includes("PENDING") || !dns) {
-    return "We're waiting for your DNS records to resolve. Changes can take a few minutes to propagate.";
+  // `ownershipStatus` caches Cloudflare's hostname status; `sslStatus` the cert.
+  const own = (domain.ownershipStatus ?? "").toLowerCase();
+  const ssl = (domain.sslStatus ?? "").toLowerCase();
+  if (!own || own.startsWith("pending")) {
+    return "We're waiting for your CNAME to resolve to PortHub. DNS changes can take a few minutes.";
   }
-  if (cert.includes("PENDING") || cert.includes("ISSUING")) {
-    return "DNS looks good. Railway is issuing the certificate now (usually under a minute).";
+  if (ssl.startsWith("pending") || ssl === "initializing") {
+    return "DNS looks good. Cloudflare is validating and issuing your certificate (usually under a minute).";
   }
-  return "Waiting on DNS propagation. Click Check now once you've saved both records.";
+  return "Waiting on DNS propagation. Make sure both records are saved at your provider.";
 }
 
 // ───────────────────────────────────────────────────────────────────────────
