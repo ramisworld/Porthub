@@ -49,12 +49,23 @@ export const env = createEnv({
     // In dev with no Resend key, the magic-link URL is logged to the server console.
     EMAIL_FROM: z.string().optional(),
 
-    // ── Custom domains (Cloudflare for SaaS) ──────────────────────────────
+    // ── Custom domains (Cloudflare for SaaS) — legacy, kept for fallback ──
     // Zone id of the root domain (porthub.dev) in our Cloudflare account.
     CLOUDFLARE_ZONE_ID: z.string().optional(),
     // API token scoped to: Custom Hostnames:Edit + SSL and Certificates:Edit
     // on the porthub.dev zone. Server-only.
     CLOUDFLARE_API_TOKEN: z.string().optional(),
+
+    // ── Custom domains (Railway Custom Domains API) ───────────────────────
+    // Account/team token from railway.com/account/tokens. Server-only.
+    RAILWAY_API_TOKEN: z.string().optional(),
+    // IDs of the service the custom domains attach to. Get them with
+    // Cmd/Ctrl+K → "Copy Project/Service/Environment ID" in the Railway app.
+    RAILWAY_PROJECT_ID: z.string().optional(),
+    RAILWAY_SERVICE_ID: z.string().optional(),
+    RAILWAY_ENVIRONMENT_ID: z.string().optional(),
+    // Port the app listens on (Railway routes the custom domain to it).
+    RAILWAY_TARGET_PORT: z.coerce.number().optional(),
   },
 
   /**
@@ -94,6 +105,11 @@ export const env = createEnv({
     EMAIL_FROM: process.env.EMAIL_FROM,
     CLOUDFLARE_ZONE_ID: process.env.CLOUDFLARE_ZONE_ID,
     CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN,
+    RAILWAY_API_TOKEN: process.env.RAILWAY_API_TOKEN,
+    RAILWAY_PROJECT_ID: process.env.RAILWAY_PROJECT_ID,
+    RAILWAY_SERVICE_ID: process.env.RAILWAY_SERVICE_ID,
+    RAILWAY_ENVIRONMENT_ID: process.env.RAILWAY_ENVIRONMENT_ID,
+    RAILWAY_TARGET_PORT: process.env.RAILWAY_TARGET_PORT,
     NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
     NEXT_PUBLIC_CUSTOM_DOMAIN_CNAME_TARGET:
       process.env.NEXT_PUBLIC_CUSTOM_DOMAIN_CNAME_TARGET,

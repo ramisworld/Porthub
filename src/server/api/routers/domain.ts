@@ -6,27 +6,31 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { env } from "~/env";
 import { validateHostname } from "~/server/domains/validate";
 import {
-  CloudflareApiError,
-  CloudflareDisabledError,
-  cfCreateHostname,
-  cfDeleteHostname,
-  cfGetHostname,
+  RailwayApiError,
+  RailwayDisabledError,
+  railwayCreateDomain,
+  railwayDeleteDomain,
+  railwayGetDomain,
   rollupStatus,
-  type CfHostname,
-} from "~/server/domains/cloudflare";
+  type RailwayDomain,
+} from "~/server/domains/railway";
 import { limit } from "~/server/ratelimit";
 
 /**
  * Custom-domain management for the signed-in user's single portfolio.
  *
+ * Backed by Railway's Custom Domains API: the app registers the user's domain
+ * on the Railway service, then shows the user the CNAME + verification TXT to
+ * add at their DNS provider. Railway issues the certificate automatically.
+ *
  * Public surface:
  *   mine()     → current row (or null) + DNS instructions
- *   add()      → register hostname with Cloudflare, persist locally
- *   recheck()  → poll CF, persist new status
- *   remove()   → delete from CF, drop the row
+ *   add()      → register hostname with Railway, persist locally
+ *   recheck()  → poll Railway, persist new status
+ *   remove()   → delete from Railway, drop the row
  *
- * Every mutation is rate-limited to keep CF API usage sane and to stop a
- * client from spamming registrations across many tabs/scripts.
+ * Every mutation is rate-limited to keep API usage sane and to stop a client
+ * from spamming registrations across many tabs/scripts.
  */
 export const domainRouter = createTRPCRouter({
   mine: protectedProcedure.query(async ({ ctx }) => {
@@ -98,20 +102,22 @@ export const domainRouter = createTRPCRouter({
         });
       }
 
-      let cf: CfHostname;
+      let rw: RailwayDomain;
       try {
-        cf = await cfCreateHostname(hostname);
+        rw = await railwayCreateDomain(hostname);
       } catch (err) {
-        if (err instanceof CloudflareDisabledError) {
+        if (err instanceof RailwayDisabledError) {
           throw new TRPCError({
             code: "PRECONDITION_FAILED",
             message: err.message,
           });
         }
-        if (err instanceof CloudflareApiError) {
+        if (err instanceof RailwayApiError) {
           throw new TRPCError({
-            code: err.status === 409 ? "CONFLICT" : "BAD_GATEWAY",
-            message: err.message,
+            code: err.conflict ? "CONFLICT" : "BAD_GATEWAY",
+            message: err.conflict
+              ? "That domain is already registered. If it's yours, remove it from Railway first."
+              : err.message,
           });
         }
         throw err;
@@ -121,10 +127,14 @@ export const domainRouter = createTRPCRouter({
         data: {
           portfolioId: portfolio.id,
           hostname,
-          cfHostnameId: cf.id,
-          status: rollupStatus({ status: cf.status, sslStatus: cf.sslStatus }),
-          ownershipStatus: cf.status,
-          sslStatus: cf.sslStatus,
+          railwayDomainId: rw.id,
+          cnameTarget: rw.cnameTarget,
+          verificationHost: rw.verificationHost,
+          verificationToken: rw.verificationToken,
+          status: rollupStatus(rw),
+          ownershipStatus: rw.dnsStatus,
+          sslStatus: rw.certificateStatus,
+          errorReason: rw.certificateErrorMessage,
           lastCheckedAt: new Date(),
         },
       });
@@ -134,11 +144,10 @@ export const domainRouter = createTRPCRouter({
   recheck: protectedProcedure.mutation(async ({ ctx }) => {
     const row = await ownRowOrThrow(ctx);
 
-    if (!row.cfHostnameId) {
-      // Created locally but never reached CF — surface a fixable error.
+    if (!row.railwayDomainId) {
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
-        message: "This domain wasn't registered with Cloudflare. Remove and re-add it.",
+        message: "This domain wasn't registered with Railway. Remove and re-add it.",
       });
     }
 
@@ -153,41 +162,52 @@ export const domainRouter = createTRPCRouter({
       });
     }
 
-    let cf: CfHostname;
+    let rw: RailwayDomain | null;
     try {
-      cf = await cfGetHostname(row.cfHostnameId);
+      rw = await railwayGetDomain(row.hostname);
     } catch (err) {
-      if (err instanceof CloudflareApiError && err.status === 404) {
-        // Hostname removed at Cloudflare (or expired). Mark + tell user.
-        const updated = await ctx.db.customDomain.update({
-          where: { id: row.id },
-          data: {
-            status: "error",
-            errorReason: "Cloudflare no longer has this hostname registered.",
-            lastCheckedAt: new Date(),
-          },
+      if (err instanceof RailwayDisabledError) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: err.message,
         });
-        return withInstructions(updated);
       }
       throw err;
     }
 
-    const status = rollupStatus({
-      status: cf.status,
-      sslStatus: cf.sslStatus,
-    });
+    if (!rw) {
+      // Removed at Railway (or expired). Mark + tell user.
+      const updated = await ctx.db.customDomain.update({
+        where: { id: row.id },
+        data: {
+          status: "error",
+          errorReason: "Railway no longer has this domain registered.",
+          lastCheckedAt: new Date(),
+        },
+      });
+      return withInstructions(updated);
+    }
+
+    const status = rollupStatus(rw);
     const updated = await ctx.db.customDomain.update({
       where: { id: row.id },
       data: {
+        // Refresh the per-domain DNS values too — Railway can re-issue them.
+        cnameTarget: rw.cnameTarget ?? row.cnameTarget,
+        verificationHost: rw.verificationHost ?? row.verificationHost,
+        verificationToken: rw.verificationToken ?? row.verificationToken,
         status,
-        ownershipStatus: cf.status,
-        sslStatus: cf.sslStatus,
+        ownershipStatus: rw.dnsStatus,
+        sslStatus: rw.certificateStatus,
         lastCheckedAt: new Date(),
         activatedAt:
           status === "active" && !row.activatedAt
             ? new Date()
             : row.activatedAt,
-        errorReason: status === "error" ? row.errorReason ?? "unknown" : null,
+        errorReason:
+          status === "error" || status === "action_needed"
+            ? rw.certificateErrorMessage ?? row.errorReason ?? "unknown"
+            : null,
       },
     });
     return withInstructions(updated);
@@ -196,14 +216,17 @@ export const domainRouter = createTRPCRouter({
   remove: protectedProcedure.mutation(async ({ ctx }) => {
     const row = await ownRowOrThrow(ctx);
 
-    if (row.cfHostnameId) {
+    if (row.railwayDomainId) {
       try {
-        await cfDeleteHostname(row.cfHostnameId);
+        await railwayDeleteDomain(row.railwayDomainId);
       } catch (err) {
-        // 404 from CF is fine — already gone there. Re-throw everything else
-        // so the row doesn't get out of sync.
+        // A "not found" from Railway is fine — already gone there. Re-throw
+        // everything else so the row doesn't get out of sync.
         if (
-          !(err instanceof CloudflareApiError && err.status === 404)
+          !(
+            err instanceof RailwayApiError &&
+            (err.status === 404 || /not found/i.test(err.message))
+          )
         ) {
           throw err;
         }
@@ -247,27 +270,56 @@ async function ownRowOrThrow(ctx: Ctx) {
   return row;
 }
 
+/** Registrable domain (last two labels). Good enough for the MVP — we don't
+ *  handle multi-part public suffixes like .co.uk, but those still work, the
+ *  user just sees a slightly longer "Name". */
+function registrableDomain(host: string): string {
+  return host.split(".").slice(-2).join(".");
+}
+
+/** The bare "Name / Host" most DNS UIs want: a fullName relative to its zone.
+ *  `_railway-verify.rami.co.nz` in zone `rami.co.nz` → `_railway-verify`.
+ *  `rami.co.nz` → `@`. */
+function dnsName(fullName: string, host: string): string {
+  const zone = registrableDomain(host);
+  if (fullName === zone) return "@";
+  if (fullName.endsWith(`.${zone}`)) {
+    return fullName.slice(0, -(zone.length + 1));
+  }
+  return fullName;
+}
+
 /**
- * Decorate a DB row with the "two lines to add" the user needs. The values
- * are stable — they don't depend on the CF row's current ownership token
- * (CF for SaaS uses the CNAME presence itself as proof when SSL method=txt
- * is also in play, plus an SSL TXT pair for the cert).
+ * Decorate a DB row with the records the user must add at their DNS provider:
+ * a CNAME (routes traffic) and a verification TXT (proves ownership). Both
+ * come straight from what Railway returned when the domain was created.
  */
 export type DomainWithInstructions = CustomDomain & {
-  instructions: { cnameTarget: string };
+  instructions: {
+    cname: { name: string; value: string };
+    txt: { name: string; value: string } | null;
+  };
 };
 
 function withInstructions(row: CustomDomain): DomainWithInstructions {
-  const cnameTarget =
-    env.NEXT_PUBLIC_CUSTOM_DOMAIN_CNAME_TARGET ?? env.NEXT_PUBLIC_ROOT_DOMAIN;
+  const cnameValue =
+    row.cnameTarget ??
+    env.NEXT_PUBLIC_CUSTOM_DOMAIN_CNAME_TARGET ??
+    env.NEXT_PUBLIC_ROOT_DOMAIN;
+
+  const txt =
+    row.verificationToken && row.verificationHost
+      ? {
+          name: dnsName(row.verificationHost, row.hostname),
+          value: row.verificationToken,
+        }
+      : null;
+
   return {
     ...row,
     instructions: {
-      cnameTarget,
-      // The user adds: <their hostname>  CNAME  <cnameTarget>
-      // The ownershipStatus/sslStatus fields are exposed so the UI can be
-      // specific ("waiting on SSL", "waiting on ownership") instead of a
-      // generic "pending".
+      cname: { name: dnsName(row.hostname, row.hostname), value: cnameValue },
+      txt,
     },
   };
 }

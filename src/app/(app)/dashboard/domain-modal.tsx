@@ -10,7 +10,7 @@ import type { DomainWithInstructions } from "~/server/api/routers/domain";
  * Flow:
  *   Step 1   Input hostname           (portfolio.max.com)
  *   Step 2   Show two DNS records     (CNAME + ownership TXT) with Copy
- *   Step 3   "Check now" polls CF     ("waiting on ownership", "active!", ...)
+ *   Step 3   "Check now" polls Railway ("waiting on DNS", "active!", ...)
  *
  * The user can close at any time; the row stays in the DB and the dashboard
  * tile keeps the current status. The only destructive button here is
@@ -230,12 +230,7 @@ function RecordsStep({
   onRemove: () => void;
   removing: boolean;
 }) {
-  const cnameTarget = domain.instructions.cnameTarget;
-  const labels = domain.hostname.split(".");
-  // Most providers ask for the "Name" / "Host" without the domain suffix.
-  // We display the bare label list so users can pick whichever matches their
-  // provider's UI: portfolio  vs.  portfolio.max.com  vs.  @
-  const sublabel = labels.length > 2 ? labels.slice(0, -2).join(".") : "@";
+  const { cname, txt } = domain.instructions;
 
   const banner =
     domain.status === "active"
@@ -252,13 +247,13 @@ function RecordsStep({
               domain.errorReason ??
               "We can't verify these records yet. Double-check both lines below and try again.",
           }
-        : domain.status === "error"
+          : domain.status === "error"
           ? {
               tone: "err" as const,
               title: "Connection error",
               body:
                 domain.errorReason ??
-                "Cloudflare reported an error. Try removing the domain and re-adding it.",
+                "Railway reported an error. Try removing the domain and re-adding it.",
             }
           : {
               tone: "pending" as const,
@@ -283,16 +278,35 @@ function RecordsStep({
           buttons.
         </p>
 
-        <RecordRow
-          type="CNAME"
-          name={sublabel}
-          value={cnameTarget}
-          purpose="Forwards visitors to your portfolio"
-        />
+        <div className="space-y-2.5">
+          <RecordRow
+            type="CNAME"
+            name={cname.name}
+            value={cname.value}
+            purpose="Forwards visitors to your portfolio"
+          />
+          {txt && (
+            <RecordRow
+              type="TXT"
+              name={txt.name}
+              value={txt.value}
+              purpose="Proves you own this domain"
+            />
+          )}
+        </div>
 
-        {/* Cloudflare creates the SSL TXT pair lazily; until we have a recheck
-            that returns them, we only show the CNAME. Recheck below polls
-            Cloudflare and surfaces any pending validation work. */}
+        {!txt && (
+          <p className="mt-2 text-[11.5px] text-white/40">
+            Add the CNAME, then click Check now — we&apos;ll fetch the
+            verification record from Railway.
+          </p>
+        )}
+
+        <p className="mt-3 text-[11.5px] text-white/40">
+          On Cloudflare, set the CNAME to{" "}
+          <span className="text-white/65">DNS only</span> (grey cloud) so the
+          certificate can be issued.
+        </p>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-4">
@@ -328,14 +342,14 @@ function RecordsStep({
 }
 
 function explainPending(domain: DomainRow): string {
-  // CF's `status` field is the ownership leg; `sslStatus` is the cert leg.
-  const o = domain.ownershipStatus;
-  const s = domain.sslStatus;
-  if (o === "pending" || o === "pending_validation") {
-    return "We're waiting for your CNAME record to resolve. DNS changes can take a few minutes.";
+  // `ownershipStatus` caches Railway's CNAME DNS status; `sslStatus` the cert.
+  const dns = (domain.ownershipStatus ?? "").toUpperCase();
+  const cert = (domain.sslStatus ?? "").toUpperCase();
+  if (dns.includes("REQUIRES_UPDATE") || dns.includes("PENDING") || !dns) {
+    return "We're waiting for your DNS records to resolve. Changes can take a few minutes to propagate.";
   }
-  if (s === "pending_validation" || s === "initializing") {
-    return "DNS is good. We're waiting on Cloudflare to issue the certificate (usually under a minute).";
+  if (cert.includes("PENDING") || cert.includes("ISSUING")) {
+    return "DNS looks good. Railway is issuing the certificate now (usually under a minute).";
   }
   return "Waiting on DNS propagation. Click Check now once you've saved both records.";
 }

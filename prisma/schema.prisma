@@ -110,12 +110,18 @@ model CustomDomain {
   portfolioId     String    @unique
   portfolio       Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
   hostname        String    @unique
-  // Cloudflare's id for this custom hostname. Nullable so we can persist the
-  // row even if the CF call fails mid-creation (so we can retry/clean up).
+  // Cloudflare's id for this custom hostname (legacy CF-for-SaaS path).
+  // Nullable so we can persist the row even if the call fails mid-creation.
   cfHostnameId    String?   @unique
-  // Local rollup of CF status: pending | active | action_needed | error.
+  // Railway Custom Domains API: the id Railway assigns to this domain, plus
+  // the per-domain DNS values Railway returns (CNAME target + verify TXT).
+  railwayDomainId   String? @unique
+  cnameTarget       String? // e.g. w9kc0szy.up.railway.app
+  verificationHost  String? // e.g. _railway-verify.example.com
+  verificationToken String? // TXT value to prove ownership
+  // Local rollup status: pending | active | action_needed | error.
   status          String    @default("pending")
-  // Raw CF sub-statuses cached for the UI ("pending_validation", etc.).
+  // Raw provider sub-statuses cached for the UI.
   ownershipStatus String?
   sslStatus       String?
   errorReason     String?
