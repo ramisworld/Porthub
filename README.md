@@ -1,4 +1,4 @@
-# PortHub
+# Porfilo
 
 Turn a GitHub username into a beautiful, hosted developer portfolio in seconds —
 one that **looks hand-made, actually represents you, and is yours to keep.**
@@ -6,7 +6,7 @@ one that **looks hand-made, actually represents you, and is yours to keep.**
 ## The one-line thesis
 
 > Competitors (Crazzy, Foliox) wrap a **fixed template** around a lazy three-sentence LLM call —
-> so every user's portfolio looks the same. PortHub **generates a bespoke, interactive site**
+> so every user's portfolio looks the same. Porfilo **generates a bespoke, interactive site**
 > from your real work *and your stated vibe* — and the generated code is **yours to keep.**
 
 ## How it works (user flow)
@@ -14,7 +14,7 @@ one that **looks hand-made, actually represents you, and is yours to keep.**
 1. Land on the page → type your GitHub username (e.g. `ramisworld`).
 2. **Describe the vibe** in your own words ("dark hacker terminal, neon green, minimal").
 3. Hit generate → a live "build log" plays while we fetch → curate → write → compose.
-4. **Tada** — your portfolio is live on `<slug>.localhost:3000` (dev) / `<slug>.porthub.rami.co.nz` (prod).
+4. **Tada** — your portfolio is live on `<slug>.localhost:3000` (dev) / `<slug>.porfilo.com` (prod).
 5. Create an account to **claim & edit** it, and connect your own **custom domain** (`you.com`) — see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §2a.
 
 No login wall in front of the magic. The first generation is anonymous and costs us **~$0.05**.
@@ -40,6 +40,6 @@ No login wall in front of the magic. The first generation is anonymous and costs
 
 ## Status
 
-Live on Railway, served at `porthub.rami.co.nz`. Generation, accounts, editing, credentials, and
+Live on Railway, served at `porfilo.com`. Generation, accounts, editing, credentials, and
 user-owned custom domains (Cloudflare for SaaS) are all working. The `docs/specs/` phase docs are
 kept as historical planning notes; `docs/ARCHITECTURE.md` is the source of truth for the current system.
