@@ -9,4 +9,4 @@ routes = [
 ]
 
 [vars]
-UPSTREAM = "https://3jekg11a.up.railway.app"
+UPSTREAM = "https://porthub-production.up.railway.app"

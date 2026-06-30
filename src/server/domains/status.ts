@@ -64,29 +64,45 @@ async function dnsPointsToTarget(
   }
 }
 
+/**
+ * Decide whether an HTTP response actually came from the Porfilo app rather
+ * than an intermediate "not found" page from upstream infrastructure (Railway
+ * edge fallback, parked-domain pages, etc.).
+ *
+ * The middleware stamps every Porfilo-served response with `x-porfilo-served:
+ * 1` so we have a positive signal that traffic reached the app and Next.js
+ * routed it. Without that header we treat the response as not-yet-connected,
+ * even a 200, because intermediate hosts return 200 pages that aren't ours.
+ */
+function isPorfiloResponse(res: Response): boolean {
+  return res.headers.get("x-porfilo-served") === "1";
+}
+
 async function httpReachable(hostname: string): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12_000);
   try {
-    const res = await fetch(`https://${hostname}/`, {
-      method: "HEAD",
-      redirect: "follow",
-      signal: controller.signal,
-      headers: { "user-agent": "Porfilo-DomainCheck/1.0" },
-    });
-    return res.status >= 200 && res.status < 500;
-  } catch {
     try {
-      const res = await fetch(`https://${hostname}/`, {
-        method: "GET",
+      const head = await fetch(`https://${hostname}/`, {
+        method: "HEAD",
         redirect: "follow",
         signal: controller.signal,
         headers: { "user-agent": "Porfilo-DomainCheck/1.0" },
       });
-      return res.status >= 200 && res.status < 500;
+      if (isPorfiloResponse(head)) return true;
     } catch {
-      return false;
+      /* fall through to GET — some hosts reject HEAD */
     }
+
+    const get = await fetch(`https://${hostname}/`, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+      headers: { "user-agent": "Porfilo-DomainCheck/1.0" },
+    });
+    return isPorfiloResponse(get);
+  } catch {
+    return false;
   } finally {
     clearTimeout(timer);
   }

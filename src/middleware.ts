@@ -90,12 +90,16 @@ export function middleware(req: NextRequest) {
       `/sites-by-host/${encodeURIComponent(customHost)}`,
       req.nextUrl.pathname,
     );
-    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    return withPorfiloHeader(
+      NextResponse.rewrite(url, { request: { headers: requestHeaders } }),
+    );
   }
 
   // Bare root → app
   if (hostNoPort === rootNoPort) {
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    return withPorfiloHeader(
+      NextResponse.next({ request: { headers: requestHeaders } }),
+    );
   }
 
   // Subdomains under our root → full hostname lookup (preview slugs + free subdomains)
@@ -105,14 +109,18 @@ export function middleware(req: NextRequest) {
       hostNoPort.length - rootNoPort.length - 1,
     );
     if (!subdomain || RESERVED.has(subdomain)) {
-      return NextResponse.next({ request: { headers: requestHeaders } });
+      return withPorfiloHeader(
+        NextResponse.next({ request: { headers: requestHeaders } }),
+      );
     }
     const url = req.nextUrl.clone();
     url.pathname = portfolioInternalPath(
       `/sites-by-host/${encodeURIComponent(hostNoPort)}`,
       req.nextUrl.pathname,
     );
-    return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    return withPorfiloHeader(
+      NextResponse.rewrite(url, { request: { headers: requestHeaders } }),
+    );
   }
 
   // External custom domain
@@ -121,7 +129,19 @@ export function middleware(req: NextRequest) {
     `/sites-by-host/${encodeURIComponent(hostNoPort)}`,
     req.nextUrl.pathname,
   );
-  return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  return withPorfiloHeader(
+    NextResponse.rewrite(url, { request: { headers: requestHeaders } }),
+  );
+}
+
+/**
+ * Stamp every response the Porfilo app produces with a marker so the domain
+ * status check can distinguish a real Porfilo response from a Railway/Vercel
+ * fallback "not found" page returned by upstream infrastructure.
+ */
+function withPorfiloHeader(res: NextResponse): NextResponse {
+  res.headers.set("x-porfilo-served", "1");
+  return res;
 }
 
 export const config = {
